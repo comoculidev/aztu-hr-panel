@@ -20,6 +20,8 @@ export function konfiqOxu(env = process.env) {
     ingestAcar: env.INGEST_ACAR || '',
     ingestIp: (env.INGEST_IP || '').split(',').map((s) => s.trim()).filter(Boolean),
     isBaslama: env.IS_BASLAMA || '09:00',
+    // tanınmayanların üz şəkli neçə gün saxlanır (sonra avtomatik silinir)
+    sekilGun: Math.max(1, Number(env.SEKIL_SAXLAMA_GUN || 30)),
     isBitme: env.IS_BITME || '18:00',
     sessiyaSaat: Number(env.SESSIYA_SAAT || 8),
     // HTTPS arxasındadırsa (nginx) — true: kuki yalnız şifrəli bağlantıda göndərilir

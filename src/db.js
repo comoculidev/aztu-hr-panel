@@ -41,7 +41,23 @@ export function bazaAc(yol) {
   const db = new DatabaseSync(yol);
   db.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;');
   db.exec(SXEM);
+  // köhnə bazaya yeni sütunlar (sonradan əlavə olunanlar) — mövcud məlumat itmir
+  sutunElave(db, 'hadiseler', 'adam_no', 'TEXT');     // tanınmayanın qlobal nömrəsi (G7)
+  sutunElave(db, 'hadiseler', 'sekil', 'BLOB');       // tanınmayanın kameradakı üzü (30 gün)
   return db;
+}
+
+function sutunElave(db, cedvel, sutun, tip) {
+  const var_ = db.prepare(`PRAGMA table_info(${cedvel})`).all().some((s) => s.name === sutun);
+  if (!var_) db.exec(`ALTER TABLE ${cedvel} ADD COLUMN ${sutun} ${tip}`);
+}
+
+/** Tanınmayanların üz şəkilləri yalnız `gun` gün saxlanır (şəxsi məlumat); hadisənin özü qalır. Silinən sayı. */
+export function kohneSekilleriSil(db, gun = 30) {
+  const d = new Date();
+  d.setDate(d.getDate() - gun);
+  return Number(db.prepare('UPDATE hadiseler SET sekil = NULL WHERE sekil IS NOT NULL AND tarix < ?')
+    .run(buGun(d)).changes);
 }
 
 /** Yerli vaxt "YYYY-MM-DD HH:MM:SS" (server TZ=Asia/Baku) */

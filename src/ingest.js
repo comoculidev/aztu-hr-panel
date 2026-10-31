@@ -12,6 +12,13 @@ const metn = (v, maks = 200) => (typeof v === 'string' ? v.trim().slice(0, maks)
 
 export const ipNormal = (ip) => String(ip || '').replace(/^::ffff:/, '');
 
+/** base64 → JPEG (yalnız FF D8 ilə başlayan və ağlabatan ölçüdə; başqa fayl brauzerə şəkil kimi verilməsin) */
+export function jpegOxu(b64, maks = 500_000) {
+  if (typeof b64 !== 'string' || !b64 || b64.length > maks * 1.4) return null;
+  const b = Buffer.from(b64, 'base64');
+  return b.length >= 100 && b.length <= maks && b[0] === 0xff && b[1] === 0xd8 ? b : null;
+}
+
 function eyniAcar(a, b) {
   const x = Buffer.from(String(a));
   const y = Buffer.from(String(b));
@@ -38,7 +45,8 @@ export function ingestRouter(db, k, log = console) {
   });
 
   const hadiseYaz = db.prepare(`INSERT OR IGNORE INTO hadiseler
-    (id, tarix, saat, kamera, istiqamet, kateqoriya, emekdas_id, oxsarliq, alindi) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+    (id, tarix, saat, kamera, istiqamet, kateqoriya, emekdas_id, oxsarliq, adam_no, sekil, alindi)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
 
   r.post('/hadiseler', (req, res) => {
     const siyahi = req.body?.hadiseler;
@@ -56,8 +64,11 @@ export function ingestRouter(db, k, log = console) {
         }
         const emekdasId = h.kateqoriya === 'emekdas' ? metn(h.emekdas_id, 300) || null : null;
         const oxs = typeof h.oxsarliq === 'number' && Number.isFinite(h.oxsarliq) ? h.oxsarliq : null;
+        // üz şəkli yalnız tanınmayan üçün saxlanır (HR "Hadisələr"); əməkdaş/tələbə şəkli gəlsə də yazılmır
+        const taninmayan = h.kateqoriya === 'taninmayan';
         qebul += Number(hadiseYaz.run(id, h.tarix, h.saat, metn(h.kamera, 32) || '?', h.istiqamet, h.kateqoriya,
-          emekdasId, oxs, alindi).changes);
+          emekdasId, oxs, taninmayan ? metn(h.adam_no, 16) || null : null, taninmayan ? jpegOxu(h.sekil) : null,
+          alindi).changes);
       }
     });
     // pozuq hadisə təkrar göndərilsə də düzəlməyəcək — 200 qaytarılır ki, kamera növbəsi ilişib qalmasın

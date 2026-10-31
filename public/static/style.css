@@ -420,3 +420,58 @@ a.adam:hover b { color: var(--accent); }
   .giris-sol ul, .giris-sol small { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+/* ================================================================ sıx cədvəl (hesabat: 1000+ əməkdaş, 8 sütun ekrana sığsın) */
+.cedvel-sixi th, .cedvel-sixi td { padding: 9px 10px; }
+.cedvel-sixi th:first-child, .cedvel-sixi td:first-child { padding-left: 16px; }
+.cedvel-sixi td.metn { white-space: normal; min-width: 150px; max-width: 260px; line-height: 1.35; }
+.cedvel-sixi td.metn b, .cedvel-sixi td.metn .alt { display: block; overflow-wrap: anywhere; }
+.cedvel-sixi .olcu { min-width: 96px; }
+.cedvel-sixi th { font-size: 11px; letter-spacing: .3px; }
+
+/* ================================================================ Hadisələr: tanınmayanların üzləri */
+.uz-setka { display: grid; grid-template-columns: repeat(auto-fill, minmax(156px, 1fr)); gap: 14px; padding: 16px 18px; }
+.uz-kart {
+  display: flex; flex-direction: column; text-align: left; padding: 0; border: 1px solid var(--line); border-radius: 12px;
+  background: var(--surface); cursor: pointer; overflow: hidden; color: inherit; transition: transform .12s, box-shadow .12s;
+}
+.uz-kart:hover, .uz-kart:focus-visible { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+.uz-kart img, .uz-kart .uz-yox { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; display: block; background: var(--surface-3); }
+.uz-kart .uz-yox { display: grid; place-items: center; color: var(--ink-3); font-size: 12px; }
+.uz-melumat { padding: 9px 11px 11px; display: flex; flex-direction: column; gap: 5px; }
+.uz-melumat .saat { font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -.2px; }
+.uz-melumat .tarix { color: var(--ink-3); font-size: 12px; }
+.uz-melumat .setir { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.g-no { display: inline-flex; align-items: center; border-radius: 6px; padding: 0 7px; font-size: 12px; font-weight: 700; background: var(--warn-soft); color: var(--warn); }
+.saat-sahe { display: inline-flex; align-items: center; gap: 6px; background: var(--surface); border: 1px solid var(--line-2); border-radius: 9px; padding: 0 6px 0 11px; min-height: 38px; box-shadow: var(--shadow); }
+.saat-sahe span { color: var(--ink-3); font-size: 13px; }
+.saat-sahe input { border: 0; box-shadow: none; min-height: 34px; padding: 4px 6px; background: transparent; }
+.saat-sahe input:focus { outline: none; }
+.saat-sahe button { border: 0; background: transparent; color: var(--ink-3); cursor: pointer; padding: 4px; border-radius: 6px; }
+.saat-sahe button:hover { background: var(--surface-3); color: var(--ink); }
+.saat-sahe button svg { width: 15px; height: 15px; display: block; }
+img.avatar.uz { border-radius: 8px; }
+dialog.uz-pencere { border: 0; border-radius: 16px; padding: 0; background: var(--surface); color: var(--ink); box-shadow: var(--shadow-lg); width: min(440px, calc(100vw - 32px)); }
+dialog.uz-pencere::backdrop { background: rgba(8, 15, 28, .55); }
+dialog.uz-pencere img { width: 100%; aspect-ratio: 1 / 1; object-fit: contain; background: #0b1017; display: block; }
+dialog.uz-pencere .ici { padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 10px; }
+dialog.uz-pencere .bas { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+dialog.uz-pencere .bas b { font-size: 20px; }
+dialog.uz-pencere .dugmeler { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; margin-top: 4px; }
+
+.cedvel-sixi .olcu .nisan { align-self: flex-end; }
+
+/* ================================================================ orta ekran (≤1180px): yan menyu yalnız ikonlar — cədvəllərə yer */
+@media (min-width: 901px) and (max-width: 1180px) {
+  .app { grid-template-columns: 72px minmax(0, 1fr); }
+  .yan { padding: 16px 10px; align-items: center; }
+  .marka { padding: 4px 0 18px; }
+  .marka div:last-child, .nav-bas, .nav a span, .nav .say, .sistem span, .istifadeci > div:not(.avatar) { display: none; }
+  .nav a { justify-content: center; padding: 10px; }
+  .nav a.aktiv::before { left: -10px; }
+  .sistem { padding: 8px; display: grid; place-items: center; }
+  .sistem b { font-size: 0; gap: 0; }
+  .istifadeci { flex-direction: column; border-top: 0; padding: 0; }
+  .istifadeci .ikon-d { margin: 0; }
+  .esas { padding: 20px 22px 48px; }
+}

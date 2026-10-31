@@ -3,7 +3,7 @@ process.env.TZ ||= 'Asia/Baku';     // "bu gün" və saat kamera sistemi ilə ey
 
 const { envYukle, konfiqOxu } = await import('./konfiq.js');
 envYukle();
-const { bazaAc } = await import('./db.js');
+const { bazaAc, kohneSekilleriSil } = await import('./db.js');
 const { appQur } = await import('./app.js');
 
 const k = konfiqOxu();
@@ -14,6 +14,14 @@ const log = {
   warn: (m) => console.warn(`${new Date().toISOString()} DİQQƏT ${m}`),
   error: (e) => console.error(`${new Date().toISOString()} XƏTA`, e),
 };
+
+// tanınmayanların köhnə üz şəkilləri: başlayanda və saatda bir
+const temizle = () => {
+  const n = kohneSekilleriSil(db, k.sekilGun);
+  if (n) log.info(`${n} tanınmayan üz şəkli silindi (${k.sekilGun} gündən köhnə)`);
+};
+temizle();
+setInterval(temizle, 3600_000).unref();
 
 const server = appQur(db, k, log).listen(k.port, k.host, () => {
   log.info(`AzTU HR paneli: http://${k.host}:${k.port} · baza: ${k.bazaYolu}`);

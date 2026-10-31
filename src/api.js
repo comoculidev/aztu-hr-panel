@@ -129,9 +129,47 @@ export function apiRouter(db, k, log = console) {
     if (evvel) { sert.push('(h.tarix, h.saat, h.no) < (?, ?, ?)'); par.push(evvel[1], evvel[2], Number(evvel[3])); }
     const say = Math.min(200, Math.max(1, Number(req.query.limit) || 50));
     res.json(db.prepare(`SELECT h.no, h.tarix, h.saat, h.kamera, h.istiqamet, h.kateqoriya, h.emekdas_id, h.oxsarliq,
-        e.ad, e.soyad, e.sobe, e.vezife, e.sekil IS NOT NULL AS sekil_var
+        h.adam_no, h.sekil IS NOT NULL AS uz_var, e.ad, e.soyad, e.sobe, e.vezife, e.sekil IS NOT NULL AS sekil_var
       FROM hadiseler h LEFT JOIN emekdaslar e ON e.id = h.emekdas_id
       WHERE ${sert.join(' AND ')} ORDER BY h.tarix DESC, h.saat DESC, h.no DESC LIMIT ?`).all(...par, say));
+  });
+
+  // ---------------------------------------------------------------- tanınmayanlar (Hadisələr səhifəsi)
+  // ayrı-ayrı süzgəc: qapı (kamera), tarix (son `sekilGun` gün içində), saat aralığı, qlobal nömrə (eyni yad adam)
+  r.get('/taninmayanlar', (req, res) => {
+    const { bas, son } = araliq(req.query);
+    const hedd = new Date();
+    const saxlamaGun = k.sekilGun || 30;
+    hedd.setDate(hedd.getDate() - saxlamaGun);
+    const sert = ["h.kateqoriya = 'taninmayan'", 'h.tarix BETWEEN ? AND ?'];
+    const par = [bas < buGun(hedd) ? buGun(hedd) : bas, son];
+    const kamera = str(req.query.kamera, 32);
+    if (kamera) { sert.push('h.kamera = ?'); par.push(kamera); }
+    const adam = str(req.query.adam, 16);
+    if (adam) { sert.push('h.adam_no = ?'); par.push(adam); }
+    for (const [ad, op] of [['saatBas', '>='], ['saatSon', '<=']]) {
+      const v = str(req.query[ad], 8);
+      if (!v) continue;
+      if (!/^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/.test(v)) throw new SorguXetasi('Saat SS:DD şəklində olmalıdır');
+      sert.push(`h.saat ${op} ?`);
+      par.push(v.length === 5 ? `${v}${op === '>=' ? ':00' : ':59'}` : v);
+    }
+    if (str(req.query.sekilli) === '1') sert.push('h.sekil IS NOT NULL');
+    const where = sert.join(' AND ');
+    const say = db.prepare(`SELECT COUNT(*) AS n FROM hadiseler h WHERE ${where}`).get(...par).n;
+    const evvel = /^(\d{4}-\d{2}-\d{2})\|(\d{2}:\d{2}:\d{2})\|(\d+)$/.exec(str(req.query.evvel, 40));
+    const sertK = evvel ? `${where} AND (h.tarix, h.saat, h.no) < (?, ?, ?)` : where;
+    const parK = evvel ? [...par, evvel[1], evvel[2], Number(evvel[3])] : par;
+    const limit = Math.min(120, Math.max(1, Number(req.query.limit) || 60));
+    const siyahi = db.prepare(`SELECT h.no, h.tarix, h.saat, h.kamera, h.istiqamet, h.adam_no, h.sekil IS NOT NULL AS sekil_var
+      FROM hadiseler h WHERE ${sertK} ORDER BY h.tarix DESC, h.saat DESC, h.no DESC LIMIT ?`).all(...parK, limit);
+    res.json({ bas: par[0], son, say, saxlamaGun, siyahi });
+  });
+
+  r.get('/hadise-sekil/:no', (req, res) => {
+    const x = db.prepare("SELECT sekil FROM hadiseler WHERE no = ? AND kateqoriya = 'taninmayan'").get(Number(req.params.no) || 0);
+    if (!x?.sekil) return res.status(404).end();
+    res.set({ 'Content-Type': 'image/jpeg', 'Cache-Control': 'private, max-age=86400' }).send(Buffer.from(x.sekil));
   });
 
   r.get('/filtrler', (req, res) => {

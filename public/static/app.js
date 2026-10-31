@@ -160,7 +160,7 @@ const ipucuGizle = () => ipucu.classList.add('gizli');
 const el = (tag, sinif, metn) => { const e = document.createElement(tag); if (sinif) e.className = sinif; if (metn !== undefined) e.textContent = metn; return e; };
 
 // ================================================================ müddət seçicisi
-const MUDDET_ADLARI = { bugun: 'Bu gün', dunen: 'Dünən', son7: 'Son 7 gün', buay: 'Bu ay', kecenay: 'Keçən ay', gun: 'Gün', ay: 'Ay', araliq: 'Aralıq' };
+const MUDDET_ADLARI = { bugun: 'Bu gün', dunen: 'Dünən', son7: 'Son 7 gün', son30: 'Son 30 gün', buay: 'Bu ay', kecenay: 'Keçən ay', gun: 'Gün', ay: 'Ay', araliq: 'Aralıq' };
 
 function muddetHesabla(m) {
   const b = MEN.bugun;
@@ -168,6 +168,7 @@ function muddetHesabla(m) {
     case 'bugun': return Object.assign(m, { bas: b, son: b });
     case 'dunen': { const d = gunEkle(b, -1); return Object.assign(m, { bas: d, son: d }); }
     case 'son7': return Object.assign(m, { bas: gunEkle(b, -6), son: b });
+    case 'son30': return Object.assign(m, { bas: gunEkle(b, -29), son: b });
     case 'buay': return Object.assign(m, { bas: ayBasi(b), son: b });
     case 'kecenay': { const s = gunEkle(ayBasi(b), -1); return Object.assign(m, { bas: ayBasi(s), son: s }); }
     case 'gun': { const g = m.gun || b; return Object.assign(m, { gun: g, bas: g, son: g }); }
@@ -188,7 +189,7 @@ function muddetQur(qab, m, secimler, deyisdi) {
   const ciz = () => {
     muddetHesabla(m);
     let elave = '';
-    if (m.nov === 'gun') elave = `<input type="date" data-m="gun" value="${m.gun}" max="${MEN.bugun}" aria-label="Gün">`;
+    if (m.nov === 'gun') elave = `<input type="date" data-m="gun" value="${m.gun}" max="${MEN.bugun}"${m.min ? ` min="${m.min}"` : ''} aria-label="Gün">`;
     if (m.nov === 'ay') elave = `<input type="month" data-m="ay" value="${m.ay}" max="${MEN.bugun.slice(0, 7)}" aria-label="Ay">`;
     if (m.nov === 'araliq') {
       elave = `<input type="date" data-m="araliqBas" value="${m.araliqBas}" max="${MEN.bugun}" aria-label="Başlanğıc tarixi">
@@ -527,7 +528,9 @@ async function hadiseYukle(sifirla, sessiz = false) {
       <tbody>${U.hadiseler.map((h) => {
         const sexs = h.kateqoriya === 'emekdas' && h.ad
           ? `<a class="adam" href="${kartUrl(h.emekdas_id)}">${avatar({ ...h, id: h.emekdas_id }, 'avatar kicik')}<b>${esc(tamAd(h))}</b></a>`
-          : KATEQORIYA[h.kateqoriya] ?? esc(h.kateqoriya);
+          : h.kateqoriya === 'taninmayan' && h.uz_var
+            ? `<a class="adam" href="#/hadiseler" title="Hadisələr səhifəsində bax"><img class="avatar kicik uz" src="/api/hadise-sekil/${h.no}" alt="" loading="lazy">${KATEQORIYA.taninmayan}${h.adam_no ? ` <span class="g-no">${esc(h.adam_no)}</span>` : ''}</a>`
+            : KATEQORIYA[h.kateqoriya] ?? esc(h.kateqoriya);
         return `<tr><td class="t"><b>${esc(h.saat.slice(0, 5))}</b>${coxGun ? `<div class="alt">${tarixYaz(h.tarix)}</div>` : ''}</td>
           <td>${sexs}</td><td>${yon(h.istiqamet)}</td><td><span class="cip">${esc(h.kamera)}</span></td>
           <td>${h.ad ? `${esc(h.sobe)}<div class="alt">${esc(h.vezife)}</div>` : ''}</td></tr>`;
@@ -804,7 +807,6 @@ const SUTUNLAR = [
   ['soyad', 'Əməkdaş', (x) => `${x.soyad} ${x.ad}`],
   ['sobe', 'Şöbə / vəzifə', (x) => x.sobe],
   ['davamiyyet', 'Davamiyyət', davamiyyet],
-  ['gelmeyenGun', 'Gəlmədiyi', (x) => x.gelmeyenGun],
   ['isdeSan', 'Cəmi işdə', (x) => x.isdeSan],
   ['olmamaSan', 'Kənarda', (x) => x.olmamaSan],
   ['gecikmeSayi', 'Gecikmə', (x) => x.gecikmeSayi],
@@ -820,16 +822,16 @@ function hesabatCedvel() {
     const f = typeof x === 'number' || typeof y === 'number' ? (x ?? -1) - (y ?? -1) : AZ.compare(String(x), String(y));
     return H.artan ? f : -f;
   });
-  qab.innerHTML = siyahi.length ? `<table><thead><tr>${SUTUNLAR.map(([k, ad], i) => `<th class="siralanan${H.sira === k ? ' siralanib' : ''}${i > 1 ? ' r' : ''}"
+  qab.innerHTML = siyahi.length ? `<table class="cedvel-sixi"><thead><tr>${SUTUNLAR.map(([k, ad], i) => `<th class="siralanan${H.sira === k ? ' siralanib' : ''}${i > 1 ? ' r' : ''}"
       data-sira="${k}" tabindex="0" aria-sort="${H.sira === k ? (H.artan ? 'ascending' : 'descending') : 'none'}">${ad}<span class="ox">${H.sira === k && !H.artan ? '↓' : '↑'}</span></th>`).join('')}</tr></thead>
     <tbody>${siyahi.map((x) => {
     const d = davamiyyet(x);
     return `<tr class="klik" data-id="${esc(x.id)}" tabindex="0">
-      <td><b>${esc(`${x.soyad} ${x.ad}`)}</b><div class="alt">${esc(x.ata)}</div></td>
-      <td>${esc(x.sobe)}<div class="alt">${esc(x.vezife)}</div></td>
+      <td class="metn"><b>${esc(`${x.soyad} ${x.ad}`)}</b><span class="alt">${esc(x.ata)}</span></td>
+      <td class="metn">${esc(x.sobe)}<span class="alt">${esc(x.vezife)}</span></td>
       <td class="r">${d === null ? '—' : `<div class="olcu"><div class="olcu-bas"><span>${x.gelenGun} gün</span><b>${d}%</b></div>
-        <div class="zolaq"><i data-w="${d}"></i></div></div>`}</td>
-      <td class="r">${x.gelmeyenGun ? `<span class="nisan bad yox">${x.gelmeyenGun} gün</span>` : '<span class="alt-metn">0</span>'}</td>
+        <div class="zolaq"><i data-w="${d}"></i></div>
+        ${x.gelmeyenGun ? `<span class="nisan bad yox">${x.gelmeyenGun} gün gəlməyib</span>` : ''}</div>`}</td>
       <td class="r"><b>${muddetSoz(x.isdeSan)}</b></td>
       <td class="r">${muddetSoz(x.olmamaSan)}</td>
       <td class="r">${x.gecikmeSayi ? `${x.gecikmeSayi} dəfə<div class="alt">${muddetSoz(x.gecikmeSan)}</div>` : '<span class="alt-metn">—</span>'}</td>
@@ -840,7 +842,7 @@ function hesabatCedvel() {
   for (const th of $$('th[data-sira]', qab)) {
     const sira = () => {
       if (H.sira === th.dataset.sira) H.artan = !H.artan;
-      else { H.sira = th.dataset.sira; H.artan = !['davamiyyet', 'gelmeyenGun', 'isdeSan', 'olmamaSan', 'gecikmeSayi'].includes(H.sira); }
+      else { H.sira = th.dataset.sira; H.artan = !['isdeSan', 'olmamaSan', 'gecikmeSayi'].includes(H.sira); }
       hesabatCedvel();
     };
     th.addEventListener('click', sira);
@@ -893,6 +895,129 @@ function cekmeceBagla(fokus = true) {
 $('#ortu').addEventListener('click', cekmeceBagla);
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') cekmeceBagla(); });
 
+// ================================================================ 4. HADİSƏLƏR: tanınmayanların üzləri
+// Ayrı-ayrı süzgəc: tarix (son 30 gün — şəkillər daha çox saxlanmır), qapı (kamera), saat aralığı, eyni yad adam (G7).
+const HD = { m: { nov: 'bugun' }, kamera: '', saatBas: '', saatSon: '', adam: '', siyahi: [], kursor: null, say: 0 };
+const IKON_SIL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>';
+
+async function hadiselerSehife() {
+  sehife.innerHTML = `
+    <div class="sehife-bas"><div><h1>Hadisələr</h1><p>Tanınmayan keçidlər — kameranın çəkdiyi üz şəkli ilə. Şəkillər 30 gün saxlanır.</p></div>
+      <div class="sag"><span class="yenilenib" id="yenilenib"></span>
+        <button class="ikon-d" type="button" id="hd-yenile" title="Yenilə" aria-label="Yenilə">${IKON.yenile}</button></div></div>
+    <div class="filtr-setri" id="hd-muddet"></div>
+    <div class="filtr-setri">
+      <select id="hd-kamera" aria-label="Qapı (kamera)"><option value="">Bütün qapılar</option></select>
+      <label class="saat-sahe"><span>Saat</span>
+        <input type="time" id="hd-saat-bas" value="${esc(HD.saatBas)}" aria-label="Saat — başlanğıc">
+        <span>—</span><input type="time" id="hd-saat-son" value="${esc(HD.saatSon)}" aria-label="Saat — son">
+        <button type="button" id="hd-saat-sil" title="Saat süzgəcini sil" aria-label="Saat süzgəcini sil">${IKON_SIL}</button></label>
+      <span id="hd-adam"></span>
+    </div>
+    <section class="kart">
+      <div class="kart-bas"><h2 id="hd-bas">Tanınmayanlar</h2><span class="alt-metn" id="hd-izah"></span></div>
+      <div class="cerceve" id="hd-setka"></div>
+      <div class="daha gizli" id="hd-daha"><button class="dugme" type="button">Daha çox göstər</button></div>
+    </section>
+    <dialog class="uz-pencere" id="hd-pencere"></dialog>`;
+  HD.m.min = gunEkle(MEN.bugun, -29);
+  HD.siyahi = [];
+  muddetQur($('#hd-muddet'), HD.m, ['bugun', 'dunen', 'son7', 'son30', 'gun'], () => hadiselerYukle(true));
+  const kam = $('#hd-kamera');
+  kam.addEventListener('change', () => { HD.kamera = kam.value; hadiselerYukle(true); });
+  for (const [id, a] of [['#hd-saat-bas', 'saatBas'], ['#hd-saat-son', 'saatSon']]) {
+    $(id).addEventListener('change', (e) => { HD[a] = e.target.value; hadiselerYukle(true); });
+  }
+  $('#hd-saat-sil').addEventListener('click', () => {
+    HD.saatBas = '';
+    HD.saatSon = '';
+    $('#hd-saat-bas').value = '';
+    $('#hd-saat-son').value = '';
+    hadiselerYukle(true);
+  });
+  $('#hd-yenile').addEventListener('click', () => hadiselerYukle(true));
+  $('#hd-daha button').addEventListener('click', () => hadiselerYukle(false));
+  filtrlerAl().then((f) => {
+    kam.insertAdjacentHTML('beforeend', f.kameralar.map((k) => `<option>${esc(k)}</option>`).join(''));
+    kam.value = HD.kamera;
+  }).catch(() => {});
+  await hadiselerYukle(true);
+  taymer = setInterval(() => {
+    if (!document.hidden && HD.m.son >= MEN.bugun && !$('#hd-pencere')?.open && !HD.kursorElave) hadiselerYukle(true, true);
+  }, 30_000);
+}
+
+function hadiseParam() {
+  const p = new URLSearchParams({ bas: HD.m.bas < HD.m.min ? HD.m.min : HD.m.bas, son: HD.m.son, limit: '60' });
+  if (HD.kamera) p.set('kamera', HD.kamera);
+  if (HD.saatBas) p.set('saatBas', HD.saatBas);
+  if (HD.saatSon) p.set('saatSon', HD.saatSon);
+  if (HD.adam) p.set('adam', HD.adam);
+  return p;
+}
+
+async function hadiselerYukle(sifirla, sessiz = false) {
+  const qab = $('#hd-setka');
+  if (!qab) return;
+  if (sifirla) { HD.kursor = null; HD.kursorElave = false; } else HD.kursorElave = true;   // "daha çox"dan sonra avtomatik yeniləmə siyahını qısaltmasın
+  $('#hd-adam').innerHTML = HD.adam
+    ? `<span class="cip">Eyni adam: ${esc(HD.adam)}&nbsp;<button type="button" class="ikon-d" id="hd-adam-sil" aria-label="Süzgəci sil">${IKON_SIL}</button></span>` : '';
+  $('#hd-adam-sil')?.addEventListener('click', () => { HD.adam = ''; hadiselerYukle(true); });
+  const p = hadiseParam();
+  if (!sifirla && HD.kursor) p.set('evvel', HD.kursor);
+  qab.classList.add('gozle');
+  if (sifirla && !sessiz && !HD.siyahi.length) qab.innerHTML = '<div class="yuklenir">Yüklənir…</div>';
+  try {
+    const c = await api(`/api/taninmayanlar?${p}`);
+    if (!qab.isConnected) return;
+    HD.siyahi = sifirla ? c.siyahi : [...HD.siyahi, ...c.siyahi];
+    HD.say = c.say;
+    const son = HD.siyahi.at(-1);
+    HD.kursor = son ? `${son.tarix}|${son.saat}|${son.no}` : null;
+    const f = [HD.kamera && `qapı ${HD.kamera}`, (HD.saatBas || HD.saatSon) && `saat ${HD.saatBas || '00:00'}–${HD.saatSon || '23:59'}`,
+      HD.adam && `adam ${HD.adam}`].filter(Boolean);
+    $('#hd-bas').textContent = `Tanınmayanlar — ${reqem(c.say)}`;
+    $('#hd-izah').textContent = `${muddetMetni(HD.m)}${f.length ? ` · ${f.join(', ')}` : ''}`;
+    qab.innerHTML = HD.siyahi.length ? `<div class="uz-setka">${HD.siyahi.map((h, i) => `
+      <button type="button" class="uz-kart" data-i="${i}" aria-label="${esc(`${tarixYaz(h.tarix)} ${h.saat}, ${h.kamera}`)}">
+        ${h.sekil_var ? `<img src="/api/hadise-sekil/${h.no}" alt="" loading="lazy">` : '<div class="uz-yox">şəkil yoxdur</div>'}
+        <div class="uz-melumat"><span class="saat">${esc(h.saat.slice(0, 5))}</span>
+          <span class="tarix">${tarixYaz(h.tarix)}, ${hefteQisa(h.tarix)}</span>
+          <span class="setir"><span class="cip">${esc(h.kamera)}</span>${yon(h.istiqamet)}${h.adam_no ? `<span class="g-no">${esc(h.adam_no)}</span>` : ''}</span></div>
+      </button>`).join('')}</div>`
+      : '<div class="bos"><b>Tanınmayan keçid yoxdur</b>Seçilmiş tarix, qapı və saat üzrə qeyd tapılmadı.</div>';
+    $('#hd-daha').classList.toggle('gizli', HD.siyahi.length >= c.say);
+    for (const d of $$('.uz-kart', qab)) d.addEventListener('click', () => uzAc(HD.siyahi[Number(d.dataset.i)]));
+    yenilenib();
+  } catch (e) {
+    qab.innerHTML = xetaHtml(e);
+  } finally {
+    qab.classList.remove('gozle');
+  }
+}
+
+function uzAc(h) {
+  const d = $('#hd-pencere');
+  d.innerHTML = `${h.sekil_var ? `<img src="/api/hadise-sekil/${h.no}" alt="Tanınmayan şəxsin üzü">` : ''}
+    <div class="ici"><div class="bas"><b>${esc(h.saat)}</b><button class="ikon-d" type="button" id="hd-bagla" aria-label="Bağla">${IKON_SIL}</button></div>
+      <div>${tarixUzun(h.tarix)}, ${hefteQisa(h.tarix)}</div>
+      <div class="uz-melumat"><span class="setir"><span class="cip">${esc(h.kamera)}</span>${yon(h.istiqamet)}${h.adam_no ? `<span class="g-no">${esc(h.adam_no)}</span>` : ''}</span></div>
+      ${h.adam_no ? `<div class="alt-metn">${esc(h.adam_no)} — sistemin bu yad adama verdiyi nömrə: eyni adam başqa qapıda və ya qayıdanda eyni nömrə ilə görünür.</div>` : ''}
+      <div class="dugmeler">${h.adam_no ? '<button class="dugme" type="button" id="hd-eyni">Bu adamın bütün keçidləri</button>' : ''}
+        <button class="dugme esasli" type="button" id="hd-ok">Bağla</button></div></div>`;
+  const bagla = () => d.close();
+  $('#hd-bagla', d).addEventListener('click', bagla);
+  $('#hd-ok', d).addEventListener('click', bagla);
+  $('#hd-eyni', d)?.addEventListener('click', () => {
+    // bu adamın BÜTÜN keçidləri: qapı və saat süzgəci götürülür, müddət — son 30 gün
+    Object.assign(HD, { adam: h.adam_no, kamera: '', saatBas: '', saatSon: '' });
+    HD.m.nov = 'son30';
+    d.close();
+    hadiselerSehife();
+  });
+  d.showModal();
+}
+
 // ================================================================ yönləndirmə
 async function yonlendir() {
   clearInterval(taymer);
@@ -909,6 +1034,7 @@ async function yonlendir() {
   if (yol === 'emekdaslar') return emekdaslarSehife();
   if (yol === 'emekdas' && param) return emekdasSehife(decodeURIComponent(param));
   if (yol === 'hesabat') return hesabatSehife();
+  if (yol === 'hadiseler') return hadiselerSehife();
   if (location.hash && location.hash !== '#/umumi') history.replaceState(null, '', '#/umumi');
   return umumiSehife();
 }

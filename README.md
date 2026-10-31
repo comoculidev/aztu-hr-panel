@@ -5,14 +5,17 @@ branch `server-panel-test`) əməkdaş keçidlərini qəbul edən və HR üçün
 
 - **Kamera sistemi** (192.0.2.77) olduğu kimi işləyir; əməkdaş keçidlərini və əməkdaş siyahısını (şəkli ilə) bu serverə
   API ilə göndərir. Server əlçatmaz olanda hadisələr kamera kompüterində növbədə gözləyir, itmir.
-- **Bu server** (192.0.2.50): Node.js + SQLite. Login → 3 səhifə:
+- **Bu server** (192.0.2.50): Node.js + SQLite. Login → 4 səhifə:
   1. **Ümumi görünüş** — ümumi keçid, əməkdaş keçidi, işə gələn əməkdaş, tələbə və tanınmayan sayı; bu gün binada olan,
      gecikən; saat/gün qrafiki; son hadisələr (kamera və növ filtri, 15 san-da bir yenilənir); kamera sisteminin siqnalı.
   2. **Əməkdaşlar** — axtarış (ad, soyad, ata adı, şöbə, vəzifə; "Eli" = "Əli"), şöbə və vəzifə filtri, bu günün
      vəziyyəti üzrə düymələr (binadadır / çıxıb / gəlməyib / gecikib). Əməkdaşın kartı: şəkli, bu gün gəliş/çıxış,
      **günün zaman xətti** (binada / kənarda / iş qrafiki), **kənarda olduğu vaxtlar** — həm saat aralığı, həm müddət
      (`13:35 → 14:44 · 1 saat 9 dəq`) və cəmi, keçidlər, tarixçə (hər gün mini zaman xətti ilə) + Excel.
-  3. **Hesabat** — gün, ay, son 7 gün və ya aralıq; şöbə, vəzifə, axtarış; sıralanan xülasə cədvəli (davamiyyət %,
+  3. **Hadisələr** — tanınmayan keçidlər kameranın çəkdiyi üz şəkli ilə (son 30 gün). Ayrı-ayrı süzgəc: tarix
+     (bu gün, dünən, son 7 / 30 gün, gün seçimi), qapı (kamera), saat aralığı; karta klik → böyük şəkil və
+     "Bu adamın bütün keçidləri" (sistemin yad adama verdiyi G-nömrəsi ilə — başqa qapılarda və qayıdanda).
+  4. **Hesabat** — gün, ay, son 7 gün və ya aralıq; şöbə, vəzifə, axtarış; sıralanan xülasə cədvəli (davamiyyət %,
      gəlmədiyi gün, işdə, kənarda, gecikmə, orta gəliş); əməkdaşa klik → yan pəncərədə onun günləri və öz Excel-i;
      **Excel-ə çıxar** — ekranda nə seçilibsə (Xülasə, Gündəlik, Parametrlər vərəqləri).
   - Açıq / tünd tema (yan menyuda), mobil görünüş, "son yenilənmə" vaxtı.
@@ -101,14 +104,16 @@ Problem olsa: serverdə `journalctl -u aztu-hr-panel` (və ya `npm start` çıx�
 `<cixis>/log/aztu.log` — "HR server" sətirləri.
 
 ## Məxfilik
-- Tələbə və tanınmayan keçidləri adsız gəlir (yalnız say). Üz vektoru və kamera kadrı serverə gəlmir.
+- Tələbə keçidləri adsız gəlir (yalnız say). Tanınmayanın kameradakı üzü (200 px) gəlir və **30 gün** saxlanır
+  (`SEKIL_SAXLAMA_GUN`), sonra avtomatik silinir; kamera tərəfində `taninmayan_sekli = false` ilə söndürülür.
+  Üz vektoru, əməkdaş və tələbənin kamera şəkli serverə gəlmir.
 - `data/` (baza), `.env` git-ə düşmür. Bazanı ehtiyat nüsxə edin: `sqlite3 data/hr.db ".backup hr-$(date +%F).db"`.
 - Kamera API-si: Bearer açar + IP icazəsi. Panel: sessiya kukisi (HttpOnly, SameSite=Strict), CSP, parol scrypt ilə.
 
 ## İnkişaf
 ```bash
 npm install
-npm test                 # 23 test: iş vaxtı, axtarış, API, hesabat, Excel
+npm test                 # 24 test: iş vaxtı, axtarış, API, hesabat, Excel, tanınmayanlar
 npm start                # .env-dən oxuyur
 ```
 Bilinən: `npm audit` exceljs-in daxili asılılığında (minimatch, arxiv yaradılması) orta səviyyəli xəbərdarlıq göstərir;

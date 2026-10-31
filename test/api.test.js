@@ -5,7 +5,7 @@ import { randomBytes } from 'node:crypto';
 import ExcelJS from 'exceljs';
 import { appQur } from '../src/app.js';
 import { istifadeciYaz } from '../src/auth.js';
-import { bazaAc, buGun } from '../src/db.js';
+import { bazaAc, buGun, kohneSekilleriSil } from '../src/db.js';
 
 process.env.TZ = 'Asia/Baku';
 const sakit = { info() {}, warn() {}, error() {} };
@@ -180,4 +180,36 @@ test('çıxış: CSRF başlığı olmadan rədd, sonra sessiya bağlanır', asyn
   assert.equal((await sorgu('/api/cixis', { metod: 'POST', kuki })).status, 403);
   assert.equal((await sorgu('/api/cixis', { metod: 'POST', kuki, basliq: { 'X-Aztu': '1' } })).status, 200);
   assert.equal((await sorgu('/api/men', { kuki })).status, 401);
+});
+
+test('tanınmayanların üzü: qəbul, süzgəc (qapı, tarix, saat), şəkil, 30 gün', async () => {
+  const t = buGun();
+  const uz = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(300, 7)]).toString('base64');
+  const r = await ingest('hadiseler', { hadiseler: [
+    { id: 'u1', tarix: t, saat: '09:10:00', kamera: 'T1', istiqamet: 'giris', kateqoriya: 'taninmayan', adam_no: 'G7', sekil: uz },
+    { id: 'u2', tarix: t, saat: '15:20:00', kamera: 'T2', istiqamet: 'cixis', kateqoriya: 'taninmayan', adam_no: 'G7', sekil: uz },
+    { id: 'u3', tarix: t, saat: '16:00:00', kamera: 'T1', istiqamet: 'giris', kateqoriya: 'emekdas', emekdas_id: ALI, sekil: uz },
+  ] });
+  assert.equal(r.json.qebul, 3);
+  const kuki = await giris();
+  let s = (await sorgu('/api/taninmayanlar', { kuki })).json;
+  assert.deepEqual(s.siyahi.filter((x) => x.sekil_var).map((x) => x.saat), ['15:20:00', '09:10:00']);
+  assert.equal(s.siyahi[0].adam_no, 'G7');
+  s = (await sorgu('/api/taninmayanlar?kamera=T1', { kuki })).json;
+  assert.ok(s.siyahi.every((x) => x.kamera === 'T1'));
+  s = (await sorgu('/api/taninmayanlar?saatBas=15:00&saatSon=16:00', { kuki })).json;
+  assert.deepEqual(s.siyahi.map((x) => x.saat), ['15:20:00']);
+  s = (await sorgu('/api/taninmayanlar?adam=G7', { kuki })).json;
+  assert.equal(s.say, 2);
+  const sekil = await fetch(`${url}/api/hadise-sekil/${s.siyahi[0].no}`, { headers: { Cookie: kuki } });
+  assert.equal(sekil.headers.get('content-type'), 'image/jpeg');
+  // əməkdaş hadisəsinin şəkli saxlanmır
+  const emekdas = db.prepare("SELECT sekil FROM hadiseler WHERE id = 'u3'").get();
+  assert.equal(emekdas.sekil, null);
+  // 30 gündən köhnə şəkil silinir, hadisənin özü qalır
+  db.prepare(`INSERT INTO hadiseler (id, tarix, saat, kamera, istiqamet, kateqoriya, sekil, alindi)
+              VALUES ('kohne', '2000-01-01', '10:00:00', 'T1', 'giris', 'taninmayan', ?, '')`).run(Buffer.from(uz, 'base64'));
+  assert.equal(kohneSekilleriSil(db, 30), 1);
+  assert.equal(db.prepare("SELECT sekil FROM hadiseler WHERE id = 'kohne'").get().sekil, null);
+  assert.equal((await sorgu('/api/taninmayanlar?saatBas=25:00', { kuki })).status, 400);
 });
