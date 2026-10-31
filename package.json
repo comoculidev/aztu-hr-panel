@@ -10,7 +10,8 @@
   "scripts": {
     "start": "node src/server.js",
     "test": "node --test --test-concurrency=1 \"test/*.test.js\"",
-    "istifadeci": "node scripts/istifadeci.js"
+    "istifadeci": "node scripts/istifadeci.js",
+    "telebe-temizle": "node scripts/telebe-temizle.js"
   },
   "dependencies": {
     "exceljs": "^4.4.0",

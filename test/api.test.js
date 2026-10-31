@@ -70,6 +70,17 @@ test('kamera API-si: icazəsiz IP rədd', async () => {
   s.close();
 });
 
+test('köhnə kamera tələbəni göndərsə, əməkdaş siyahısına düşmür', async () => {
+  const r = await ingest('emekdaslar', { emekdaslar: [
+    { id: ALI, ad: 'Əli', soyad: 'Vəliyev', ata: 'Rasim', sobe: 'Kibertəhlükəsizlik', vezife: 'Dosent' },
+    { id: 'nigar|hesenova', ad: 'Nigar', soyad: 'Həsənova', sobe: '5226a', vezife: 'MEXANIKA-MUHENDISLIYI' },
+    { id: 'tural|qasimov', ad: 'Tural', soyad: 'Qasımov', sobe: 'ITT', vezife: 'STUDENT' },
+  ] });
+  assert.equal(r.status, 200);
+  assert.equal(r.json.telebe, 2);
+  assert.deepEqual(db.prepare("SELECT id FROM emekdaslar WHERE id LIKE 'nigar%' OR id LIKE 'tural%'").all(), []);
+});
+
 test('əməkdaş siyahısı, şəkil, hadisələr, siqnal', async () => {
   let r = await ingest('emekdaslar', { emekdaslar: [
     { id: ALI, ad: 'Əli', soyad: 'Vəliyev', ata: 'Rasim', sobe: 'Kibertəhlükəsizlik', vezife: 'Dosent', sekil_hash: 'h1' },

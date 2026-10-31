@@ -4,6 +4,7 @@ import { timingSafeEqual } from 'node:crypto';
 import express from 'express';
 import { formalar } from './axtaris.js';
 import { emeliyyat, indiYaz } from './db.js';
+import { telebedir } from './telebe.js';
 
 const TARIX = /^\d{4}-\d{2}-\d{2}$/;
 const SAAT = /^\d{2}:\d{2}:\d{2}$/;
@@ -89,13 +90,19 @@ export function ingestRouter(db, k, log = console) {
     const gelen = new Set();
     const sekilLazim = [];
     let yeni = 0;
+    let telebe = 0;
     emeliyyat(db, () => {
       for (const e of siyahi) {
         const id = metn(e?.id, 300);
         const ad = metn(e?.ad, 100);
         if (!id || !ad || gelen.has(id)) continue;
-        gelen.add(id);
         const [soyad, ata, sobe, vezife] = [metn(e.soyad, 100), metn(e.ata, 100), metn(e.sobe), metn(e.vezife)];
+        // köhnə versiyalı kamera tələbəni də göndərə bilər — qəbul edilmir (siyahıda yox sayılır, varsa deaktiv olur)
+        if (telebedir(sobe, vezife)) {
+          telebe += 1;
+          continue;
+        }
+        gelen.add(id);
         const hash = metn(e.sekil_hash, 80);
         yaz.run(id, ad, soyad, ata, sobe, vezife, hash, formalar(ad, soyad, ata, sobe, vezife), indi, indi);
         const kohne = movcud.get(id);
@@ -107,8 +114,9 @@ export function ingestRouter(db, k, log = console) {
       for (const [id, e] of movcud) if (!gelen.has(id) && e.aktiv) deaktivEt.run(indi, id);
     });
     const deaktiv = [...movcud.entries()].filter(([id, e]) => !gelen.has(id) && e.aktiv).length;
-    log.info(`ingest: əməkdaş siyahısı — ${gelen.size} nəfər, ${yeni} yeni, ${deaktiv} deaktiv, ${sekilLazim.length} şəkil lazım`);
-    res.json({ yeni, yenilenen: gelen.size - yeni, deaktiv, sekil_lazim: sekilLazim });
+    log.info(`ingest: əməkdaş siyahısı — ${gelen.size} nəfər, ${yeni} yeni, ${deaktiv} deaktiv, ${sekilLazim.length} şəkil lazım`
+      + (telebe ? `, ${telebe} tələbə qəbul edilmədi (kamera yenilənməlidir)` : ''));
+    res.json({ yeni, yenilenen: gelen.size - yeni, deaktiv, telebe, sekil_lazim: sekilLazim });
   });
 
   r.post('/sekiller', (req, res) => {

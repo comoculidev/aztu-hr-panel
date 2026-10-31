@@ -59,6 +59,15 @@ npm run istifadeci -- --sondur <ad>       # girişi bağla
 ```
 Parol ən azı 10 simvoldur; 5 səhv cəhddən sonra həmin IP + ad 15 dəqiqə bloklanır.
 
+### Əməkdaş siyahısına düşmüş tələbələr
+Kamera bazasında bəzi tələbələrin vəzifəsi `STUDENT` yazılıb və ya qrup kodu (`5226a`) şöbə yerinə düşüb. Köhnə
+versiyalı kamera onları əməkdaş kimi göndərirdi. İndi nə kamera onları göndərir, nə də server qəbul edir. Əvvəl
+yığılmış qeydləri təmizləmək üçün (əvvəlcə kamera kompüterini yeniləyin):
+```bash
+npm run telebe-temizle              # yalnız siyahını göstərir, heç nə dəyişmir
+npm run telebe-temizle -- --sil     # adı və şəkli silinir; keçidləri adsız "tələbə" keçidi olaraq qalır
+```
+
 ### Server Windows-dadırsa
 ```powershell
 cd C:ztu-hr-panel
@@ -104,7 +113,8 @@ Problem olsa: serverdə `journalctl -u aztu-hr-panel` (və ya `npm start` çıx�
 `<cixis>/log/aztu.log` — "HR server" sətirləri.
 
 ## Məxfilik
-- Tələbə keçidləri adsız gəlir (yalnız say). Tanınmayanın kameradakı üzü (200 px) gəlir və **30 gün** saxlanır
+- Tələbə keçidləri adsız gəlir (yalnız say). Tələbəyə oxşayan qeyd əməkdaş siyahısına qəbul edilmir
+  (`src/telebe.js`, kamera ilə eyni qayda). Tanınmayanın kameradakı üzü (200 px) gəlir və **30 gün** saxlanır
   (`SEKIL_SAXLAMA_GUN`), sonra avtomatik silinir; kamera tərəfində `taninmayan_sekli = false` ilə söndürülür.
   Üz vektoru, əməkdaş və tələbənin kamera şəkli serverə gəlmir.
 - `data/` (baza), `.env` git-ə düşmür. Bazanı ehtiyat nüsxə edin: `sqlite3 data/hr.db ".backup hr-$(date +%F).db"`.
