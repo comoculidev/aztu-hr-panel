@@ -739,7 +739,7 @@ async function emekdasSehife(id) {
 }
 
 // ================================================================ 3. HESABAT
-const H = { m: { nov: 'ay' }, q: '', sobe: '', vezife: '', sira: 'soyad', artan: true, xulase: [] };
+const H = { m: { nov: 'ay' }, q: '', sobe: '', vezife: '', sira: 'soyad', artan: true, xulase: [], sehife: 0, olcu: 50 };
 
 function hesabatParam(emekdas) {
   const p = new URLSearchParams({ bas: H.m.bas, son: H.m.son });
@@ -761,7 +761,7 @@ async function hesabatSehife() {
     </div>
     <div id="h-xulase"></div>
     <section class="kart"><div class="kart-bas"><h2 id="h-bas">Əməkdaşlar üzrə</h2><span class="alt-metn" id="h-izah"></span></div>
-      <div class="cedvel-qab cerceve" id="h-cedvel"></div></section>`;
+      <div class="cedvel-qab cerceve" id="h-cedvel"></div><div id="h-sehifeleme"></div></section>`;
   muddetQur($('#h-muddet'), H.m, ['gun', 'ay', 'son7', 'araliq'], hesabatYukle);
   const q = $('#h-q');
   q.addEventListener('input', debounce(() => { H.q = q.value; hesabatYukle(); }));
@@ -794,7 +794,8 @@ async function hesabatYukle() {
       ['Gecikmə (cəmi)', `${reqem(cem('gecikmeSayi'))} dəfə`],
       ['Kənarda olma (cəmi)', muddetSoz(cem('olmamaSan'))],
     ].map(([a, d]) => `<div class="gosterici kart"><div class="etiket">${a}</div><div class="reqem">${d}</div></div>`).join('')}</div><br>`;
-    $('#h-bas').textContent = `Əməkdaşlar üzrə — ${n}`;
+    $('#h-bas').textContent = `Əməkdaşlar üzrə — ${reqem(n)}`;
+    H.sehife = 0;                           // süzgəc və ya tarix dəyişdi — birinci səhifədən
     hesabatCedvel();
   } catch (e) {
     qab.innerHTML = xetaHtml(e);
@@ -814,6 +815,45 @@ const SUTUNLAR = [
 ];
 const AZ = new Intl.Collator('az', { sensitivity: 'base', numeric: true });
 
+// Səhifələmə: "1–50 / 1 027", ‹ 1 … 4 5 6 … 21 ›, səhifədə neçə sətir. v: { sehife (0-dan), olcu }
+const OLCULER = [25, 50, 100, 200];
+
+function sehifeNomreleri(cari, cem) {
+  const s = new Set([0, cem - 1, cari - 1, cari, cari + 1]);
+  if (cari < 4) for (let i = 0; i < 5; i += 1) s.add(i);              // başda və sonda "…" bir səhifəni gizlətməsin
+  if (cari > cem - 5) for (let i = cem - 5; i < cem; i += 1) s.add(i);
+  const n = [...s].filter((i) => i >= 0 && i < cem).sort((a, b) => a - b);
+  const r = [];
+  n.forEach((i, j) => {
+    if (j && i - n[j - 1] > 1) r.push(i - n[j - 1] === 2 ? i - 1 : '…');
+    r.push(i);
+  });
+  return r;
+}
+
+function sehifelemeQur(qab, say, v, deyisdi) {
+  if (!qab) return;
+  if (say <= OLCULER[0]) { qab.innerHTML = ''; return; }
+  const cem = Math.ceil(say / v.olcu);
+  const bas = v.sehife * v.olcu;
+  qab.innerHTML = `<div class="sehifeleme">
+    <span class="alt-metn">${reqem(bas + 1)}–${reqem(Math.min(say, bas + v.olcu))} / ${reqem(say)}</span>
+    <nav aria-label="Səhifələr">
+      <button type="button" data-s="${v.sehife - 1}"${v.sehife === 0 ? ' disabled' : ''} aria-label="Əvvəlki səhifə">‹</button>
+      ${sehifeNomreleri(v.sehife, cem).map((i) => (i === '…' ? '<span class="ucnokte">…</span>'
+    : `<button type="button" data-s="${i}"${i === v.sehife ? ' aria-current="page"' : ''} aria-label="Səhifə ${i + 1}">${i + 1}</button>`)).join('')}
+      <button type="button" data-s="${v.sehife + 1}"${v.sehife >= cem - 1 ? ' disabled' : ''} aria-label="Növbəti səhifə">›</button>
+    </nav>
+    <label class="olcu-sec">Səhifədə <select aria-label="Səhifədə neçə sətir">${OLCULER.map((o) => `<option${o === v.olcu ? ' selected' : ''}>${o}</option>`).join('')}</select></label>
+  </div>`;
+  for (const b of $$('button[data-s]', qab)) b.addEventListener('click', () => { v.sehife = Number(b.dataset.s); deyisdi(); });
+  $('select', qab).addEventListener('change', (e) => {
+    v.olcu = Number(e.target.value);
+    v.sehife = Math.floor(bas / v.olcu);      // baxdığı sətir yeni səhifədə də görünsün
+    deyisdi();
+  });
+}
+
 function hesabatCedvel() {
   const qab = $('#h-cedvel');
   const [, , acar] = SUTUNLAR.find(([k]) => k === H.sira);
@@ -822,9 +862,12 @@ function hesabatCedvel() {
     const f = typeof x === 'number' || typeof y === 'number' ? (x ?? -1) - (y ?? -1) : AZ.compare(String(x), String(y));
     return H.artan ? f : -f;
   });
+  // 1000+ əməkdaş bir cədvəldə həm yavaş, həm oxunmaz: sıralama bütün siyahıya, göstərmə səhifə-səhifə
+  H.sehife = Math.min(H.sehife, Math.max(0, Math.ceil(siyahi.length / H.olcu) - 1));
+  const gorunen = siyahi.slice(H.sehife * H.olcu, (H.sehife + 1) * H.olcu);
   qab.innerHTML = siyahi.length ? `<table class="cedvel-sixi"><thead><tr>${SUTUNLAR.map(([k, ad], i) => `<th class="siralanan${H.sira === k ? ' siralanib' : ''}${i > 1 ? ' r' : ''}"
       data-sira="${k}" tabindex="0" aria-sort="${H.sira === k ? (H.artan ? 'ascending' : 'descending') : 'none'}">${ad}<span class="ox">${H.sira === k && !H.artan ? '↓' : '↑'}</span></th>`).join('')}</tr></thead>
-    <tbody>${siyahi.map((x) => {
+    <tbody>${gorunen.map((x) => {
     const d = davamiyyet(x);
     return `<tr class="klik" data-id="${esc(x.id)}" tabindex="0">
       <td class="metn"><b>${esc(`${x.soyad} ${x.ad}`)}</b><span class="alt">${esc(x.ata)}</span></td>
@@ -839,10 +882,15 @@ function hesabatCedvel() {
   }).join('')}</tbody></table>`
     : '<div class="bos"><b>Süzgəcə uyğun əməkdaş yoxdur</b></div>';
   yerlesdir(qab);
+  sehifelemeQur($('#h-sehifeleme'), siyahi.length, H, () => {
+    hesabatCedvel();
+    qab.closest('.kart').scrollIntoView({ block: 'start', behavior: 'smooth' });
+  });
   for (const th of $$('th[data-sira]', qab)) {
     const sira = () => {
       if (H.sira === th.dataset.sira) H.artan = !H.artan;
       else { H.sira = th.dataset.sira; H.artan = !['isdeSan', 'olmamaSan', 'gecikmeSayi'].includes(H.sira); }
+      H.sehife = 0;
       hesabatCedvel();
     };
     th.addEventListener('click', sira);
@@ -897,7 +945,7 @@ document.addEventListener('keydown', (e) => { if (e.key === 'Escape') cekmeceBag
 
 // ================================================================ 4. HADİSƏLƏR: tanınmayanların üzləri
 // Ayrı-ayrı süzgəc: tarix (son 30 gün — şəkillər daha çox saxlanmır), qapı (kamera), saat aralığı, eyni yad adam (G7).
-const HD = { m: { nov: 'bugun' }, kamera: '', saatBas: '', saatSon: '', adam: '', siyahi: [], kursor: null, say: 0 };
+const HD = { m: { nov: 'bugun' }, kamera: '', saatBas: '', saatSon: '', adam: '', sekilli: false, siyahi: [], kursor: null, say: 0 };
 const IKON_SIL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>';
 
 async function hadiselerSehife() {
@@ -912,8 +960,10 @@ async function hadiselerSehife() {
         <input type="time" id="hd-saat-bas" value="${esc(HD.saatBas)}" aria-label="Saat — başlanğıc">
         <span>—</span><input type="time" id="hd-saat-son" value="${esc(HD.saatSon)}" aria-label="Saat — son">
         <button type="button" id="hd-saat-sil" title="Saat süzgəcini sil" aria-label="Saat süzgəcini sil">${IKON_SIL}</button></label>
+      <label class="secim"><input type="checkbox" id="hd-sekilli"${HD.sekilli ? ' checked' : ''}>Yalnız şəkilli</label>
       <span id="hd-adam"></span>
     </div>
+    <div id="hd-xeber"></div>
     <section class="kart">
       <div class="kart-bas"><h2 id="hd-bas">Tanınmayanlar</h2><span class="alt-metn" id="hd-izah"></span></div>
       <div class="cerceve" id="hd-setka"></div>
@@ -935,6 +985,7 @@ async function hadiselerSehife() {
     $('#hd-saat-son').value = '';
     hadiselerYukle(true);
   });
+  $('#hd-sekilli').addEventListener('change', (e) => { HD.sekilli = e.target.checked; hadiselerYukle(true); });
   $('#hd-yenile').addEventListener('click', () => hadiselerYukle(true));
   $('#hd-daha button').addEventListener('click', () => hadiselerYukle(false));
   filtrlerAl().then((f) => {
@@ -953,6 +1004,7 @@ function hadiseParam() {
   if (HD.saatBas) p.set('saatBas', HD.saatBas);
   if (HD.saatSon) p.set('saatSon', HD.saatSon);
   if (HD.adam) p.set('adam', HD.adam);
+  if (HD.sekilli) p.set('sekilli', '1');
   return p;
 }
 
@@ -972,10 +1024,11 @@ async function hadiselerYukle(sifirla, sessiz = false) {
     if (!qab.isConnected) return;
     HD.siyahi = sifirla ? c.siyahi : [...HD.siyahi, ...c.siyahi];
     HD.say = c.say;
+    $('#hd-xeber').innerHTML = sekilXeberi(c);
     const son = HD.siyahi.at(-1);
     HD.kursor = son ? `${son.tarix}|${son.saat}|${son.no}` : null;
     const f = [HD.kamera && `qapı ${HD.kamera}`, (HD.saatBas || HD.saatSon) && `saat ${HD.saatBas || '00:00'}–${HD.saatSon || '23:59'}`,
-      HD.adam && `adam ${HD.adam}`].filter(Boolean);
+      HD.adam && `adam ${HD.adam}`, HD.sekilli && 'yalnız şəkilli'].filter(Boolean);
     $('#hd-bas').textContent = `Tanınmayanlar — ${reqem(c.say)}`;
     $('#hd-izah').textContent = `${muddetMetni(HD.m)}${f.length ? ` · ${f.join(', ')}` : ''}`;
     qab.innerHTML = HD.siyahi.length ? `<div class="uz-setka">${HD.siyahi.map((h, i) => `
@@ -994,6 +1047,20 @@ async function hadiselerYukle(sifirla, sessiz = false) {
   } finally {
     qab.classList.remove('gozle');
   }
+}
+
+// Şəkil niyə yoxdur — kameranın son siqnalından (kameraSekil: true / false / null — köhnə versiya)
+function sekilXeberi(c) {
+  if (c.kameraSekil === false) {
+    return `<div class="qeyd-qutu ayri"><b>Kamerada şəkil göndərmə söndürülüb.</b> Kamera kompüterindəki
+      <code>konfiq.toml</code>-da <code>taninmayan_sekli = false</code> yazılıb, ona görə yeni hadisələr də şəkilsiz gəlir.</div>`;
+  }
+  if (c.kameraSekil !== true && c.say > 0 && !c.sekilliSay) {
+    return `<div class="qeyd-qutu ayri"><b>Kamera kompüterindəki proqram köhnədir: tanınmayanın şəklini göndərmir.</b>
+      Kamera kompüterində <code>git pull</code> edib kamera xidmətini yenidən başladın. Bundan sonrakı hadisələr şəkillə
+      gələcək, əvvəlkilərin şəkli olmayacaq.</div>`;
+  }
+  return '';
 }
 
 function uzAc(h) {

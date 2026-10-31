@@ -15,7 +15,9 @@ branch `server-panel-test`) əməkdaş keçidlərini qəbul edən və HR üçün
   3. **Hadisələr** — tanınmayan keçidlər kameranın çəkdiyi üz şəkli ilə (son 30 gün). Ayrı-ayrı süzgəc: tarix
      (bu gün, dünən, son 7 / 30 gün, gün seçimi), qapı (kamera), saat aralığı; karta klik → böyük şəkil və
      "Bu adamın bütün keçidləri" (sistemin yad adama verdiyi G-nömrəsi ilə — başqa qapılarda və qayıdanda).
-  4. **Hesabat** — gün, ay, son 7 gün və ya aralıq; şöbə, vəzifə, axtarış; sıralanan xülasə cədvəli (davamiyyət %,
+     "Yalnız şəkilli" süzgəci. Şəkil gəlmirsə, səhifə səbəbini yazır: kamera kompüterindəki proqram köhnədir
+     (`git pull` + xidməti yenidən başlatmaq) və ya `konfiq.toml`-da `taninmayan_sekli = false`.
+  4. **Hesabat** — gün, ay, son 7 gün və ya aralıq; şöbə, vəzifə, axtarış; sıralanan, səhifələnən (25 / 50 / 100 / 200 sətir) xülasə cədvəli (davamiyyət %,
      gəlmədiyi gün, işdə, kənarda, gecikmə, orta gəliş); əməkdaşa klik → yan pəncərədə onun günləri və öz Excel-i;
      **Excel-ə çıxar** — ekranda nə seçilibsə (Xülasə, Gündəlik, Parametrlər vərəqləri).
   - Açıq / tünd tema (yan menyuda), mobil görünüş, "son yenilənmə" vaxtı.

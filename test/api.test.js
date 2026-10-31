@@ -206,6 +206,16 @@ test('tanınmayanların üzü: qəbul, süzgəc (qapı, tarix, saat), şəkil, 3
   let s = (await sorgu('/api/taninmayanlar', { kuki })).json;
   assert.deepEqual(s.siyahi.filter((x) => x.sekil_var).map((x) => x.saat), ['15:20:00', '09:10:00']);
   assert.equal(s.siyahi[0].adam_no, 'G7');
+  assert.equal(s.sekilliSay, 2);
+  assert.ok(s.say > 2);
+  assert.equal((await sorgu('/api/taninmayanlar?sekilli=1', { kuki })).json.say, 2);
+  // "şəkil yoxdur"un səbəbi: kamera siqnalda şəkil göndərib-göndərmədiyini bildirir (köhnə kamera — null)
+  await ingest('siqnal', { kameralar: [] });
+  assert.equal((await sorgu('/api/taninmayanlar', { kuki })).json.kameraSekil, null);
+  await ingest('siqnal', { kameralar: [], taninmayan_sekli: false });
+  assert.equal((await sorgu('/api/taninmayanlar', { kuki })).json.kameraSekil, false);
+  await ingest('siqnal', { kameralar: [], taninmayan_sekli: true });
+  assert.equal((await sorgu('/api/taninmayanlar', { kuki })).json.kameraSekil, true);
   s = (await sorgu('/api/taninmayanlar?kamera=T1', { kuki })).json;
   assert.ok(s.siyahi.every((x) => x.kamera === 'T1'));
   s = (await sorgu('/api/taninmayanlar?saatBas=15:00&saatSon=16:00', { kuki })).json;

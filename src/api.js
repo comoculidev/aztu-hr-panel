@@ -156,14 +156,18 @@ export function apiRouter(db, k, log = console) {
     }
     if (str(req.query.sekilli) === '1') sert.push('h.sekil IS NOT NULL');
     const where = sert.join(' AND ');
-    const say = db.prepare(`SELECT COUNT(*) AS n FROM hadiseler h WHERE ${where}`).get(...par).n;
+    const { say, sekilliSay } = db.prepare(`SELECT COUNT(*) AS say, COALESCE(SUM(h.sekil IS NOT NULL), 0) AS sekilliSay
+      FROM hadiseler h WHERE ${where}`).get(...par);
     const evvel = /^(\d{4}-\d{2}-\d{2})\|(\d{2}:\d{2}:\d{2})\|(\d+)$/.exec(str(req.query.evvel, 40));
     const sertK = evvel ? `${where} AND (h.tarix, h.saat, h.no) < (?, ?, ?)` : where;
     const parK = evvel ? [...par, evvel[1], evvel[2], Number(evvel[3])] : par;
     const limit = Math.min(120, Math.max(1, Number(req.query.limit) || 60));
     const siyahi = db.prepare(`SELECT h.no, h.tarix, h.saat, h.kamera, h.istiqamet, h.adam_no, h.sekil IS NOT NULL AS sekil_var
       FROM hadiseler h WHERE ${sertK} ORDER BY h.tarix DESC, h.saat DESC, h.no DESC LIMIT ?`).all(...parK, limit);
-    res.json({ bas: par[0], son, say, saxlamaGun, siyahi });
+    // "şəkil yoxdur"un səbəbini panel göstərsin: kamera şəkil göndərirmi (son siqnaldan)
+    const siqnal = db.prepare("SELECT deyer FROM sistem WHERE acar = 'siqnal'").get();
+    const kameraSekil = siqnal ? JSON.parse(siqnal.deyer).taninmayanSekli ?? null : null;
+    res.json({ bas: par[0], son, say, sekilliSay, saxlamaGun, kameraSekil, siyahi });
   });
 
   r.get('/hadise-sekil/:no', (req, res) => {

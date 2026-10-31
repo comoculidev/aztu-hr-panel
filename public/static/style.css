@@ -272,6 +272,23 @@ a.adam:hover b { color: var(--accent); }
 .bos { padding: 40px 18px; text-align: center; color: var(--ink-3); }
 .bos b { display: block; color: var(--ink-2); margin-bottom: 4px; }
 .daha { padding: 12px; text-align: center; border-top: 1px solid var(--line); }
+
+/* səhifələmə (hesabat cədvəli) */
+.sehifeleme { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; padding: 10px 14px; border-top: 1px solid var(--line); }
+.sehifeleme nav { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.sehifeleme nav button { min-width: 34px; height: 34px; padding: 0 8px; border: 1px solid var(--line-2); border-radius: 8px; background: var(--surface); font-size: 13px; font-variant-numeric: tabular-nums; cursor: pointer; }
+.sehifeleme nav button:hover:not(:disabled) { background: var(--surface-2); }
+.sehifeleme nav button[aria-current="page"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 700; }
+.sehifeleme nav button:disabled { opacity: .4; cursor: default; }
+.sehifeleme .ucnokte { padding: 0 4px; color: var(--ink-3); }
+.sehifeleme .olcu-sec { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-2); }
+.sehifeleme .olcu-sec select { min-height: 34px; }
+
+/* bayraq süzgəci (Hadisələr: yalnız şəkilli) */
+.secim { display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--ink-2); cursor: pointer; padding: 0 4px; }
+.secim input { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+.qeyd-qutu.ayri { margin: 0 0 16px; line-height: 1.5; }
+.qeyd-qutu code { font-size: 12.5px; padding: 0 4px; border-radius: 4px; background: var(--surface); color: var(--ink); }
 .xeta-qutu { background: var(--bad-soft); color: var(--bad); padding: 10px 14px; border-radius: 9px; margin-bottom: 14px; }
 .yuklenir { color: var(--ink-3); padding: 28px; text-align: center; }
 

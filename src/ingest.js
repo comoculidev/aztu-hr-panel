@@ -140,6 +140,8 @@ export function ingestRouter(db, k, log = console) {
     const deyer = {
       alindi: indiYaz(), alindiMs: Date.now(), ip: ipNormal(req.ip), vaxt: metn(b.vaxt, 40), novbe: Number(b.novbe) || 0,
       versiya: metn(b.versiya, 40),
+      // tanınmayanın şəklini göndərirmi: true / false (konfiqdə söndürülüb) / null (köhnə kamera — sahə yoxdur)
+      taninmayanSekli: typeof b.taninmayan_sekli === 'boolean' ? b.taninmayan_sekli : null,
       kameralar: Array.isArray(b.kameralar)
         ? b.kameralar.slice(0, 100).map((c) => ({ ad: metn(c?.ad, 32), istiqamet: metn(c?.istiqamet, 10) })) : [],
     };
