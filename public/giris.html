@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="az">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Giriş — AzTU HR paneli</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="icon" href="/static/ikon.svg" type="image/svg+xml">
+</head>
+<body>
+  <main class="giris-sehife">
+    <form class="giris-kart" id="forma" novalidate>
+      <div class="logo">
+        <div class="logo-isare">Az</div>
+        <div><b>AzTU</b><small>Ağıllı giriş · HR paneli</small></div>
+      </div>
+      <h1>Sistemə daxil olun</h1>
+      <p>Əməkdaşların giriş-çıxış və davamiyyəti</p>
+      <label for="ad">İstifadəçi adı</label>
+      <input type="text" id="ad" name="ad" autocomplete="username" required autofocus>
+      <label for="parol">Parol</label>
+      <input type="password" id="parol" name="parol" autocomplete="current-password" required>
+      <div class="xeta-qutu gizli" id="xeta" role="alert"></div>
+      <button class="dugme" type="submit" id="dugme">Daxil ol</button>
+      <div class="qeyd">Hesab üçün sistem administratoruna müraciət edin.</div>
+    </form>
+  </main>
+  <script src="/static/giris.js"></script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+# systemd xidməti (Linux server 192.0.2.50):
+#   sudo cp deploy/aztu-hr-panel.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now aztu-hr-panel
+#   jurnal: journalctl -u aztu-hr-panel -f
+[Unit]
+Description=AzTU HR paneli (əməkdaşların giriş-çıxışı)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=aztu-hr
+WorkingDirectory=/opt/aztu-hr-panel
+Environment=NODE_ENV=production
+Environment=TZ=Asia/Baku
+ExecStart=/usr/bin/node src/server.js
+Restart=always
+RestartSec=5
+# təhlükəsizlik: yalnız öz qovluğuna yaza bilər
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/aztu-hr-panel/data
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

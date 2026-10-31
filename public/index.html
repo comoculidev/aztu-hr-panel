@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="az">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AzTU HR paneli</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="icon" href="/static/ikon.svg" type="image/svg+xml">
+</head>
+<body>
+  <div class="qabiq">
+    <aside class="yan">
+      <div class="logo">
+        <div class="logo-isare">Az</div>
+        <div><b>AzTU</b><small>Ağıllı giriş · HR</small></div>
+      </div>
+      <nav class="nav">
+        <a href="#/umumi" data-nav="umumi">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
+          <span>Ümumi görünüş</span></a>
+        <a href="#/emekdaslar" data-nav="emekdaslar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-6 7-6s7 2 7 6"/><path d="M16 4a4 4 0 0 1 0 8M22 21c0-3-1.5-5-4-5.7"/></svg>
+          <span>Əməkdaşlar</span></a>
+        <a href="#/hesabat" data-nav="hesabat">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg>
+          <span>Hesabat</span></a>
+      </nav>
+      <div class="yan-alt">
+        <div class="ad" id="istifadeci">…</div>
+        <button type="button" id="cixis">Çıxış</button>
+      </div>
+    </aside>
+    <main class="esas" id="sehife"><div class="yuklenir">Yüklənir…</div></main>
+  </div>
+  <script src="/static/app.js" type="module"></script>
+</body>
+</html>

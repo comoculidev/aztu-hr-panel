@@ -1,0 +1,13 @@
+node_modules/
+# məlumat bazası (əməkdaşların adları, şəkilləri, hadisələr) — şəxsi məlumat, git-ə getmir
+data/
+*.db
+*.db-wal
+*.db-shm
+# parametrlər və açarlar
+.env
+.env.*
+!.env.example
+*.log
+.idea/
+.vscode/

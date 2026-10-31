@@ -1,0 +1,19 @@
+{
+  "name": "aztu-hr-panel",
+  "version": "1.0.0",
+  "description": "AzTU ağıllı giriş — HR paneli: əməkdaşların giriş-çıxışı, davamiyyət, hesabat və Excel",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test --test-concurrency=1 \"test/*.test.js\"",
+    "istifadeci": "node scripts/istifadeci.js"
+  },
+  "dependencies": {
+    "exceljs": "^4.4.0",
+    "express": "^5.3.0"
+  }
+}
