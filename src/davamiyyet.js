@@ -22,6 +22,20 @@ export const muddetYaz = (san) => {
   return `${Math.floor(deq / 60)}:${String(deq % 60).padStart(2, '0')}`;
 };
 
+/** Oxunaqlı müddət: "42 dəq", "1 saat 30 dəq", "2 saat" (HR "1:09"-dan çox "1 saat 9 dəq"-i tez oxuyur) */
+export const muddetSoz = (san) => {
+  if (san === null || san === undefined) return '—';
+  if (san > 0 && san < 30) return '1 dəq-dən az';
+  const deq = Math.round(san / 60);
+  const s = Math.floor(deq / 60);
+  const d = deq % 60;
+  if (!s) return `${d} dəq`;
+  return d ? `${s} saat ${d} dəq` : `${s} saat`;
+};
+
+/** Bir boşluq: saat aralığı və müddəti birlikdə — "13:35–14:44 (1 saat 9 dəq)" */
+export const bosluqYaz = (b) => `${b.cixis.slice(0, 5)}–${b.qayitma.slice(0, 5)} (${muddetSoz(b.san)})`;
+
 /**
  * @param {{saat: string, istiqamet: 'giris'|'cixis'}[]} hadiseler — eyni günün hadisələri, istənilən sırada
  * @param {{isBaslama?: string, isBitme?: string, birlesmeSan?: number, indi?: string|null}} ayar

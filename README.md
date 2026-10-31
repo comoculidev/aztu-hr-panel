@@ -8,10 +8,14 @@ branch `server-panel-test`) əməkdaş keçidlərini qəbul edən və HR üçün
 - **Bu server** (192.0.2.50): Node.js + SQLite. Login → 3 səhifə:
   1. **Ümumi görünüş** — ümumi keçid, əməkdaş keçidi, işə gələn əməkdaş, tələbə və tanınmayan sayı; bu gün binada olan,
      gecikən; saat/gün qrafiki; son hadisələr (kamera və növ filtri, 15 san-da bir yenilənir); kamera sisteminin siqnalı.
-  2. **Əməkdaşlar** — axtarış (ad, soyad, ata adı, şöbə, vəzifə; "Eli" = "Əli"), şöbə və vəzifə filtri. Əməkdaşın kartı:
-     şəkli, bu gün gəliş/çıxış, işdə olma və **işdə olmama** vaxtı (gün içində çıxıb-qayıtma), keçidlər, tarixçə + Excel.
-  3. **Hesabat** — gün, ay, son 7 gün və ya aralıq; şöbə, vəzifə, axtarış; əməkdaşlar üzrə xülasə, seçilmiş əməkdaşın
-     günləri; **Excel-ə çıxar** — ekranda nə seçilibsə (Xülasə, Gündəlik, Parametrlər vərəqləri).
+  2. **Əməkdaşlar** — axtarış (ad, soyad, ata adı, şöbə, vəzifə; "Eli" = "Əli"), şöbə və vəzifə filtri, bu günün
+     vəziyyəti üzrə düymələr (binadadır / çıxıb / gəlməyib / gecikib). Əməkdaşın kartı: şəkli, bu gün gəliş/çıxış,
+     **günün zaman xətti** (binada / kənarda / iş qrafiki), **kənarda olduğu vaxtlar** — həm saat aralığı, həm müddət
+     (`13:35 → 14:44 · 1 saat 9 dəq`) və cəmi, keçidlər, tarixçə (hər gün mini zaman xətti ilə) + Excel.
+  3. **Hesabat** — gün, ay, son 7 gün və ya aralıq; şöbə, vəzifə, axtarış; sıralanan xülasə cədvəli (davamiyyət %,
+     gəlmədiyi gün, işdə, kənarda, gecikmə, orta gəliş); əməkdaşa klik → yan pəncərədə onun günləri və öz Excel-i;
+     **Excel-ə çıxar** — ekranda nə seçilibsə (Xülasə, Gündəlik, Parametrlər vərəqləri).
+  - Açıq / tünd tema (yan menyuda), mobil görünüş, "son yenilənmə" vaxtı.
 
 Dizayn və API razılaşması: [docs/dizayn.md](docs/dizayn.md).
 
@@ -52,6 +56,17 @@ npm run istifadeci -- --sondur <ad>       # girişi bağla
 ```
 Parol ən azı 10 simvoldur; 5 səhv cəhddən sonra həmin IP + ad 15 dəqiqə bloklanır.
 
+### Server Windows-dadırsa
+```powershell
+cd C:ztu-hr-panel
+npm ci --omit=dev
+copy .env.example .env      # notepad .env — INGEST_ACAR, INGEST_IP
+npm run istifadeci -- hr.admin admin
+npm start                   # sınaq üçün; daimi iş üçün aşağıdakı tapşırıq
+```
+Avtomatik başlama: Task Scheduler → "At startup", istifadəçi: SYSTEM, proqram `node`, arqument `src\server.js`,
+"Start in": `C:ztu-hr-panel`. Firewall: `New-NetFirewallRule -DisplayName "AzTU HR" -Direction Inbound -Protocol TCP -LocalPort 3000 -Action Allow`.
+
 ## Kamera sistemini qoşmaq (192.0.2.77)
 1. Açar yaradın: `node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"`.
 2. Serverin `.env`-ində `INGEST_ACAR=<açar>`, `INGEST_IP=192.0.2.77`.
@@ -61,8 +76,29 @@ Parol ən azı 10 simvoldur; 5 səhv cəhddən sonra həmin IP + ad 15 dəqiqə 
    url = "http://192.0.2.50:3000"
    acar = "${HR_API_ACAR}"
    ```
-4. Kamera xidmətini yenidən başladın. Panelin "Ümumi görünüş" səhifəsində "Kamera sistemi onlayn" görünməlidir;
-   əməkdaş siyahısı bir neçə dəqiqəyə gəlir (şəkillər 240 px).
+4. Bağlantını yoxlayın (kameralar açılmır, parol lazım deyil):
+   ```
+   python uz_tanima_test.py --konfiq konfiq.toml --hr-yoxla
+   ```
+   `✔ Açar və IP düzdür` görünməlidir; `✖` olsa, sətir nəyin səhv olduğunu deyir (server cavab vermir / açar / IP).
+5. Kamera xidmətini yenidən başladın. Panelin yan menyusunda "Kameralar onlayn" görünür; əməkdaş siyahısı və
+   şəkillər (240 px) bir neçə dəqiqəyə gəlir.
+
+## Canlı test — yoxlama siyahısı
+1. **Server:** brauzerdə `http://<server>:3000/api/saglamliq` → `{"ok":true,"kameraApi":true}`.
+2. **Giriş:** `http://<server>:3000` → login → "Ümumi görünüş" açılır.
+3. **Bağlantı:** kamera kompüterində `--hr-yoxla` → `✔`. Yan menyuda "Kameralar onlayn · T1, T2, …".
+4. **Əməkdaş siyahısı:** "Əməkdaşlar" səhifəsində sayı bazadakı əməkdaş sayına bərabərdir (tələbələr yoxdur), şəkillər var.
+5. **Keçid:** bazada olan bir əməkdaş giriş kamerasından keçir → 15 san ərzində "Son hadisələr"də adı, "Bu gün diqqət"
+   → "Binada" siyahısında görünür.
+6. **Kənarda olma:** həmin əməkdaş çıxış kamerasından çıxıb bir neçə dəqiqə sonra qayıdır → kartında zaman xəttində
+   zolaqlı hissə, "Kənarda olduğu vaxt": `HH:MM → HH:MM · N dəq`, "Cəmi kənarda".
+7. **Server düşəndə:** serveri dayandırın, bir neçə keçid edin, serveri başladın → keçidlər itmədən gəlir
+   (kamera logunda "HR server yenidən əlçatandır").
+8. **Excel:** "Hesabat" → "Excel-ə çıxar" → Xülasə, Gündəlik (kənarda olduğu vaxtlar + cəmi), Parametrlər vərəqləri.
+
+Problem olsa: serverdə `journalctl -u aztu-hr-panel` (və ya `npm start` çıxışı), kamera kompüterində
+`<cixis>/log/aztu.log` — "HR server" sətirləri.
 
 ## Məxfilik
 - Tələbə və tanınmayan keçidləri adsız gəlir (yalnız say). Üz vektoru və kamera kadrı serverə gəlmir.
@@ -72,7 +108,7 @@ Parol ən azı 10 simvoldur; 5 səhv cəhddən sonra həmin IP + ad 15 dəqiqə 
 ## İnkişaf
 ```bash
 npm install
-npm test                 # 22 test: iş vaxtı, axtarış, API, Excel
+npm test                 # 23 test: iş vaxtı, axtarış, API, hesabat, Excel
 npm start                # .env-dən oxuyur
 ```
 Bilinən: `npm audit` exceljs-in daxili asılılığında (minimatch, arxiv yaradılması) orta səviyyəli xəbərdarlıq göstərir;

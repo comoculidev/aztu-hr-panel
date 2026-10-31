@@ -3,6 +3,7 @@ import express from 'express';
 import { GirisLimiti, kukiOxu, parolYoxla, sessiyaAc, sessiyaBagla, sessiyaTap } from './auth.js';
 import { buGun, indiYaz } from './db.js';
 import { excelYaz } from './excel.js';
+import { isGunudur } from './davamiyyet.js';
 import { AZ, SorguXetasi, araliq, emekdasSec, gunSetri, hesabatQur } from './hesabat.js';
 import { ipNormal } from './ingest.js';
 
@@ -20,6 +21,11 @@ export function apiRouter(db, k, log = console) {
 
   const kuki = (token, maxYas) => [`${KUKI}=${token}`, 'Path=/', 'HttpOnly', 'SameSite=Strict', `Max-Age=${maxYas}`,
     ...(k.tehlukesizKuki ? ['Secure'] : [])].join('; ');
+
+  // sağlamlıq yoxlaması (girişsiz): quraşdırmadan sonra kamera kompüterindən və ya brauzerdən "server işləyirmi?"
+  r.get('/saglamliq', (req, res) => {
+    res.set('Cache-Control', 'no-store').json({ ok: true, vaxt: indiYaz(), kameraApi: Boolean(k.ingestAcar) });
+  });
 
   r.post('/giris', (req, res) => {
     const ad = str(req.body?.ad, 64);
@@ -79,12 +85,24 @@ export function apiRouter(db, k, log = console) {
         if (!gunler.has(h.emekdas_id)) gunler.set(h.emekdas_id, []);
         gunler.get(h.emekdas_id).push(h);
       }
-      buGunX = { gelen: gunler.size, binada: 0, geciken: 0 };
-      for (const hadiseler of gunler.values()) {
+      // "Bu gün diqqət" paneli üçün adlar da: kim binadadır, kim gecikib, kim hələ gəlməyib (iş günü)
+      const siyahi = { binada: [], geciken: [], gelmeyen: [] };
+      const isGunu = isGunudur(bugun);
+      for (const e of emekdasSec(db)) {
+        const qisa = { id: e.id, ad: e.ad, soyad: e.soyad, sobe: e.sobe, vezife: e.vezife, sekil_var: e.sekil_var };
+        const hadiseler = gunler.get(e.id);
+        if (!hadiseler) {
+          if (isGunu) siyahi.gelmeyen.push(qisa);
+          continue;
+        }
         const g = gunSetri(bugun, hadiseler, k, bugun);
-        if (g.binadadir) buGunX.binada += 1;
-        if (g.gecikmeSan > 0) buGunX.geciken += 1;
+        const x = { ...qisa, gelis: g.gelis, cixis: g.cixis, gecikmeSan: g.gecikmeSan, olmamaSan: g.olmamaSan };
+        if (g.binadadir) siyahi.binada.push(x);
+        if (g.gecikmeSan > 0) siyahi.geciken.push(x);
       }
+      siyahi.geciken.sort((a, b) => b.gecikmeSan - a.gecikmeSan);
+      siyahi.binada.sort((a, b) => a.gelis.localeCompare(b.gelis));
+      buGunX = { gelen: gunler.size, binada: siyahi.binada.length, geciken: siyahi.geciken.length, isGunu, siyahi };
     }
     const siqnalSetri = db.prepare("SELECT deyer FROM sistem WHERE acar = 'siqnal'").get();
     const siqnal = siqnalSetri ? JSON.parse(siqnalSetri.deyer) : null;
@@ -139,7 +157,8 @@ export function apiRouter(db, k, log = console) {
       const hadiseler = gunler.get(e.id);
       if (!hadiseler) return { ...e, bugun: null };
       const g = gunSetri(bugun, hadiseler, k, bugun);
-      return { ...e, bugun: { gelis: g.gelis, cixis: g.cixis, binadadir: g.binadadir } };
+      return { ...e, bugun: { gelis: g.gelis, cixis: g.cixis, binadadir: g.binadadir, gecikmeSan: g.gecikmeSan,
+        olmamaSan: g.olmamaSan } };
     }));
   });
 

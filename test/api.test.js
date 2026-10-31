@@ -45,8 +45,11 @@ before(async () => {
 });
 after(() => { server.close(); db.close(); });
 
-test('girişsiz heç nə görünmür', async () => {
+test('girişsiz heç nə görünmür (sağlamlıq yoxlamasından başqa)', async () => {
   assert.equal((await sorgu('/api/umumi')).status, 401);
+  const s = await sorgu('/api/saglamliq');
+  assert.equal(s.status, 200);
+  assert.deepEqual([s.json.ok, s.json.kameraApi], [true, true]);
   const r = await sorgu('/');
   assert.equal(r.status, 302);
   assert.equal(r.c.headers.get('location'), '/giris');
@@ -113,6 +116,8 @@ test('panel: ümumi, hadisələr, axtarış, əməkdaş kartı, hesabat', async 
   assert.deepEqual([u.say.cemi, u.say.emekdas, u.say.telebe, u.say.taninmayan, u.say.emekdasUnikal], [3, 1, 1, 1, 1]);
   assert.equal(u.bugun.gelen, 1);
   assert.equal(u.bugun.binada, 1);
+  assert.deepEqual(u.bugun.siyahi.binada.map((e) => [e.soyad, e.gelis]), [['Vəliyev', '08:55:00']]);
+  assert.deepEqual(u.bugun.siyahi.geciken, []);                // 08:55 — gecikmə yoxdur
   assert.equal(u.siqnal.onlayn, true);
   assert.equal(u.seriya.nov, 'saat');
 
@@ -163,7 +168,11 @@ test('Excel: ekrandakı süzgəclə', async () => {
   await wb.xlsx.load(Buffer.from(await c.arrayBuffer()));
   assert.deepEqual(wb.worksheets.map((w) => w.name), ['Xülasə', 'Gündəlik', 'Parametrlər']);
   assert.equal(wb.getWorksheet('Xülasə').getRow(2).getCell(1).value, 'Vəliyev');
-  assert.equal(wb.getWorksheet('Gündəlik').getRow(2).getCell(9).value, '08:55:00');
+  const g = wb.getWorksheet('Gündəlik');
+  assert.equal(g.getRow(2).getCell(9).value, '08:55:00');
+  const basliq = g.getRow(1).values.slice(1);
+  assert.ok(basliq.includes('Kənarda (cəmi)') && basliq.includes('Kənarda olduğu vaxtlar'));
+  assert.equal(g.getRow(2).getCell(basliq.indexOf('Kənarda (cəmi)') + 1).value, '0 dəq');
 });
 
 test('çıxış: CSRF başlığı olmadan rədd, sonra sessiya bağlanır', async () => {

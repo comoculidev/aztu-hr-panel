@@ -3,6 +3,11 @@ const forma = document.getElementById('forma');
 const xeta = document.getElementById('xeta');
 const dugme = document.getElementById('dugme');
 
+document.getElementById('goster').addEventListener('click', () => {
+  forma.parol.type = forma.parol.type === 'password' ? 'text' : 'password';
+  forma.parol.focus();
+});
+
 forma.addEventListener('submit', async (e) => {
   e.preventDefault();
   xeta.classList.add('gizli');
@@ -11,6 +16,7 @@ forma.addEventListener('submit', async (e) => {
   if (!ad || !parol) {
     xeta.textContent = 'İstifadəçi adı və parolu yazın.';
     xeta.classList.remove('gizli');
+    (ad ? forma.parol : forma.ad).focus();
     return;
   }
   dugme.disabled = true;
@@ -26,7 +32,7 @@ forma.addEventListener('submit', async (e) => {
     const j = await c.json().catch(() => ({}));
     xeta.textContent = j.xeta || 'Giriş alınmadı.';
   } catch {
-    xeta.textContent = 'Serverlə əlaqə yoxdur.';
+    xeta.textContent = 'Serverlə əlaqə yoxdur. Şəbəkəni yoxlayın.';
   }
   xeta.classList.remove('gizli');
   forma.parol.value = '';

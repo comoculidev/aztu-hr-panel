@@ -1,7 +1,7 @@
 // İş vaxtı qaydası: günün ilk girişi = gəliş, son çıxışı = çıxış, gün içindəki çıxış → giriş boşluqları = işdə olmama.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { gunHesabla, muddetYaz, saniye, gunler, isGunudur } from '../src/davamiyyet.js';
+import { gunHesabla, muddetYaz, muddetSoz, bosluqYaz, saniye, gunler, isGunudur } from '../src/davamiyyet.js';
 
 const h = (saat, istiqamet, kamera = 'T1') => ({ saat, istiqamet, kamera });
 const ayar = { isBaslama: '09:00', isBitme: '18:00' };
@@ -87,4 +87,15 @@ test('köməkçilər', () => {
   assert.deepEqual(gunler('2026-10-30', '2026-11-02'), ['2026-10-30', '2026-10-31', '2026-11-01', '2026-11-02']);
   assert.equal(isGunudur('2026-10-31'), false);   // şənbə
   assert.equal(isGunudur('2026-11-02'), true);    // bazar ertəsi
+});
+
+test('müddət sözlə: həm saat aralığı, həm cəmi müddət oxunaqlı', () => {
+  assert.equal(muddetSoz(42 * 60), '42 dəq');
+  assert.equal(muddetSoz(90 * 60), '1 saat 30 dəq');
+  assert.equal(muddetSoz(69 * 60 + 20), '1 saat 9 dəq');
+  assert.equal(muddetSoz(2 * 3600), '2 saat');
+  assert.equal(muddetSoz(20), '1 dəq-dən az');
+  assert.equal(muddetSoz(0), '0 dəq');
+  assert.equal(muddetSoz(null), '—');
+  assert.equal(bosluqYaz({ cixis: '13:35:49', qayitma: '14:44:36', san: 4127 }), '13:35–14:44 (1 saat 9 dəq)');
 });

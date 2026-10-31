@@ -4,26 +4,46 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Giriş — AzTU HR paneli</title>
+  <script src="/static/tema.js"></script>
   <link rel="stylesheet" href="/static/style.css">
   <link rel="icon" href="/static/ikon.svg" type="image/svg+xml">
 </head>
 <body>
   <main class="giris-sehife">
-    <form class="giris-kart" id="forma" novalidate>
-      <div class="logo">
-        <div class="logo-isare">Az</div>
-        <div><b>AzTU</b><small>Ağıllı giriş · HR paneli</small></div>
+    <section class="giris-sol">
+      <div class="marka">
+        <div class="marka-isare">Az</div>
+        <div><b>AzTU</b><small>Ağıllı giriş sistemi</small></div>
       </div>
-      <h1>Sistemə daxil olun</h1>
-      <p>Əməkdaşların giriş-çıxış və davamiyyəti</p>
-      <label for="ad">İstifadəçi adı</label>
-      <input type="text" id="ad" name="ad" autocomplete="username" required autofocus>
-      <label for="parol">Parol</label>
-      <input type="password" id="parol" name="parol" autocomplete="current-password" required>
-      <div class="xeta-qutu gizli" id="xeta" role="alert"></div>
-      <button class="dugme" type="submit" id="dugme">Daxil ol</button>
-      <div class="qeyd">Hesab üçün sistem administratoruna müraciət edin.</div>
-    </form>
+      <div>
+        <h2>Əməkdaşların giriş-çıxışı bir baxışda</h2>
+        <p>Kameralar keçidi qeyd edir, panel gəliş, çıxış və işdə olmadığı vaxtı özü hesablayır.</p>
+        <ul>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m5 12 5 5L20 7"/></svg>Bu gün kim binadadır, kim gecikib</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m5 12 5 5L20 7"/></svg>Hər əməkdaşın günün zaman xətti</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m5 12 5 5L20 7"/></svg>Gün, ay və ya istənilən aralıq üzrə Excel hesabatı</li>
+        </ul>
+      </div>
+      <small>Yalnız universitetin daxili şəbəkəsində işləyir.</small>
+    </section>
+    <section class="giris-sag">
+      <form class="giris-forma" id="forma" novalidate>
+        <h1>Xoş gəlmisiniz</h1>
+        <p>HR panelinə daxil olmaq üçün hesabınızı yazın.</p>
+        <label for="ad">İstifadəçi adı</label>
+        <input type="text" id="ad" name="ad" autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus>
+        <label for="parol">Parol</label>
+        <div class="parol-sahe">
+          <input type="password" id="parol" name="parol" autocomplete="current-password" required>
+          <button type="button" id="goster" aria-label="Parolu göstər" title="Parolu göstər">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+        <div class="xeta-qutu gizli" id="xeta" role="alert"></div>
+        <button class="dugme esasli" type="submit" id="dugme">Daxil ol</button>
+        <div class="qeyd">Hesab yoxdursa, sistem administratoruna müraciət edin.</div>
+      </form>
+    </section>
   </main>
   <script src="/static/giris.js"></script>
 </body>

@@ -37,7 +37,10 @@ export function appQur(db, k, log = console) {
     res.set('Cache-Control', 'no-store').sendFile(path.join(PUBLIC, 'giris.html'));
   });
   // yalnız JS, CSS, ikonlar (məlumat yoxdur); index.html birbaşa verilmir
-  app.use('/static', express.static(path.join(PUBLIC, 'static'), { index: false, maxAge: '1h' }));
+  // no-cache: brauzer hər dəfə ETag ilə yoxlayır (dəyişməyibsə 304) — yeni versiya qoyulanda köhnə JS/CSS qalmasın
+  app.use('/static', express.static(path.join(PUBLIC, 'static'), {
+    index: false, etag: true, setHeaders: (res) => res.set('Cache-Control', 'no-cache'),
+  }));
   app.use((req, res) => res.status(404).type('text/plain').send('Tapılmadı'));
   return app;
 }

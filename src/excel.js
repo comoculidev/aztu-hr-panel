@@ -1,6 +1,7 @@
 // Excel çıxarışı: ekranda nə seçilibsə (müddət, şöbə, vəzifə, axtarış, əməkdaş) — o. Müddətlər Excel vaxt dəyəri kimi
 // yazılır ([h]:mm formatı): HR onları Excel-də toplaya, süzə bilir.
 import ExcelJS from 'exceljs';
+import { bosluqYaz, muddetSoz } from './davamiyyet.js';
 import { HEFTE } from './hesabat.js';
 
 const VAXT = '[h]:mm';
@@ -30,13 +31,14 @@ export async function excelYaz({ setirler, xulase }, { bas, son, filtr, istifade
     { header: 'Gəlmədiyi iş günü', key: 'gelmeyenGun', width: 11 },
     { header: 'Cəmi işdə', key: 'isde', width: 11, style: { numFmt: VAXT } },
     { header: 'Cəmi işdə olmama', key: 'olmama', width: 12, style: { numFmt: VAXT } },
+    { header: 'Cəmi kənarda (sözlə)', key: 'olmamaSoz', width: 15 },
     { header: 'Gecikmə sayı', key: 'gecikmeSayi', width: 10 },
     { header: 'Cəmi gecikmə', key: 'gecikme', width: 11, style: { numFmt: VAXT } },
     { header: 'Orta gəliş', key: 'ortaGelis', width: 10 },
     { header: 'Natamam gün (giriş/çıxış görünməyib)', key: 'natamamGun', width: 16 },
   ];
   for (const e of xulase) {
-    x.addRow({ ...e, isde: gun(e.isdeSan), olmama: gun(e.olmamaSan), gecikme: gun(e.gecikmeSan), ortaGelis: e.ortaGelis ?? '—' });
+    x.addRow({ ...e, isde: gun(e.isdeSan), olmama: gun(e.olmamaSan), olmamaSoz: muddetSoz(e.olmamaSan), gecikme: gun(e.gecikmeSan), ortaGelis: e.ortaGelis ?? '—' });
   }
   basliqStil(x);
 
@@ -49,6 +51,8 @@ export async function excelYaz({ setirler, xulase }, { bas, son, filtr, istifade
     { header: 'Gəliş', key: 'gelis', width: 9 }, { header: 'Çıxış', key: 'cixis', width: 9 },
     { header: 'İşdə olma', key: 'isde', width: 10, style: { numFmt: VAXT } },
     { header: 'İşdə olmama', key: 'olmama', width: 11, style: { numFmt: VAXT } },
+    { header: 'Kənarda (cəmi)', key: 'olmamaSoz', width: 14 },
+    { header: 'Kənarda olduğu vaxtlar', key: 'bosluqlar', width: 34 },
     { header: 'Gecikmə', key: 'gecikme', width: 9, style: { numFmt: VAXT } },
     { header: 'Erkən çıxış', key: 'erken', width: 10, style: { numFmt: VAXT } },
     { header: 'Keçid sayı', key: 'kecidSayi', width: 8 }, { header: 'Qeyd', key: 'qeyd', width: 40 },
@@ -58,10 +62,9 @@ export async function excelYaz({ setirler, xulase }, { bas, son, filtr, istifade
     const r = g.addRow({
       ...s, veziyyet: VEZIYYET[s.veziyyet] ?? s.veziyyet, gelis: s.gelis ?? '', cixis: s.cixis ?? '',
       isde: geldi ? gun(s.isdeSan) : null, olmama: geldi ? gun(s.olmamaSan) : null,
+      olmamaSoz: geldi ? muddetSoz(s.olmamaSan) : '', bosluqlar: (s.bosluqlar ?? []).map(bosluqYaz).join('; '),
       gecikme: geldi && s.gecikmeSan ? gun(s.gecikmeSan) : null, erken: geldi && s.erkenCixisSan ? gun(s.erkenCixisSan) : null,
-      qeyd: [s.binadadir ? 'hazırda binadadır' : '', ...s.qeydler,
-        ...(s.bosluqlar ?? []).map((b) => `çıxıb ${b.cixis.slice(0, 5)} → qayıdıb ${b.qayitma.slice(0, 5)}`)]
-        .filter(Boolean).join('; '),
+      qeyd: [s.binadadir ? 'hazırda binadadır' : '', ...s.qeydler].filter(Boolean).join('; '),
     });
     if (s.veziyyet === 'gelmeyib') r.font = { color: { argb: 'FFC00000' } };
   }

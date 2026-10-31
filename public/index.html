@@ -4,34 +4,46 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>AzTU HR paneli</title>
+  <script src="/static/tema.js"></script>
   <link rel="stylesheet" href="/static/style.css">
   <link rel="icon" href="/static/ikon.svg" type="image/svg+xml">
 </head>
 <body>
-  <div class="qabiq">
+  <div class="app">
     <aside class="yan">
-      <div class="logo">
-        <div class="logo-isare">Az</div>
+      <div class="marka">
+        <div class="marka-isare">Az</div>
         <div><b>AzTU</b><small>Ağıllı giriş · HR</small></div>
       </div>
-      <nav class="nav">
+      <div class="nav-bas">Menyu</div>
+      <nav class="nav" aria-label="Əsas menyu">
         <a href="#/umumi" data-nav="umumi">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
           <span>Ümumi görünüş</span></a>
         <a href="#/emekdaslar" data-nav="emekdaslar">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-6 7-6s7 2 7 6"/><path d="M16 4a4 4 0 0 1 0 8M22 21c0-3-1.5-5-4-5.7"/></svg>
-          <span>Əməkdaşlar</span></a>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-6 7-6s7 2 7 6"/><path d="M16 4.2a4 4 0 0 1 0 7.6M22 21c0-3-1.5-5-4-5.7"/></svg>
+          <span>Əməkdaşlar</span><b class="say" id="nav-say"></b></a>
         <a href="#/hesabat" data-nav="hesabat">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a1.5 1.5 0 0 0-1.5 1.5v15A1.5 1.5 0 0 0 6 21h12a1.5 1.5 0 0 0 1.5-1.5V8.5z"/><path d="M14 3v5.5h5.5M8.5 13h7M8.5 17h7"/></svg>
           <span>Hesabat</span></a>
       </nav>
       <div class="yan-alt">
-        <div class="ad" id="istifadeci">…</div>
-        <button type="button" id="cixis">Çıxış</button>
+        <div class="sistem" id="sistem"><b><i class="nokte"></i>Kamera sistemi</b><span>yoxlanılır…</span></div>
+        <div class="istifadeci">
+          <div class="avatar kicik" id="ist-herf">?</div>
+          <div><b id="istifadeci">…</b><small id="ist-rol"></small></div>
+          <button class="ikon-d" type="button" id="tema" aria-label="Tema"></button>
+          <button class="ikon-d" type="button" id="cixis" aria-label="Çıxış" title="Çıxış">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+          </button>
+        </div>
       </div>
     </aside>
     <main class="esas" id="sehife"><div class="yuklenir">Yüklənir…</div></main>
   </div>
+  <div class="ipucu gizli" id="ipucu" role="tooltip"></div>
+  <div class="ortu gizli" id="ortu"></div>
+  <aside class="cekmece gizli" id="cekmece" role="dialog" aria-modal="true" aria-labelledby="cekmece-bas"></aside>
   <script src="/static/app.js" type="module"></script>
 </body>
 </html>
