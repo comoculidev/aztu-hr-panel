@@ -12,10 +12,17 @@ const QRUP_KODU = /^[A-ZƏÖÜĞIİŞÇ]{0,3}-?\d{2,4}[A-ZƏÖÜĞIİŞÇ]{0,2}\
 // toUpperCase "i"-ni "I" edir (Python ilə eyni); tr/az locale lazım deyil — sözlər ASCII və "Ə" ilədir
 const boyuk = (s) => String(s ?? '').trim().toUpperCase();
 
+// Tələbə statusu: ən çoxu 2 söz, biri tələbə sözü ilə başlayır (TELEBE, STUDENTS, ECNEBI-TELEBE). Söz uzun vəzifə
+// adının içindədirsə ("TEHSIL-TELEBE-KREDIT-MUTEXESSISI") — tələbələrlə işləyən əməkdaşdır.
+function telebeSozu(v) {
+  const sozler = v.split(/[\s\-_/]+/u).filter(Boolean);
+  return sozler.length <= 2 && sozler.some((s) => TELEBE_SOZLERI.some((t) => s.startsWith(t)));
+}
+
 export function telebedir(sobe, vezife) {
   const v = boyuk(vezife);
   if (!v || v === '—' || v === '-') return false;     // vəzifə boşdur — bilinmir, kamera onsuz da göndərmir
-  if (/\d/.test(v) || TELEBE_SOZLERI.some((s) => v.includes(s))) return true;
+  if (/\d/.test(v) || telebeSozu(v)) return true;
   return QRUP_KODU.test(boyuk(sobe));
 }
 

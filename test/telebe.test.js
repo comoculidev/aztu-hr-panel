@@ -13,6 +13,14 @@ test('qayda: vəzifədə rəqəm / tələbə sözü, şöbədə qrup kodu', () =
   assert.equal(telebedir('5226a', ''), false);      // vəzifə boşdur — bilinmir
 });
 
+test('qayda: tələbə sözü uzun vəzifə adının içindədirsə — əməkdaşdır (kamera ilə eyni)', () => {
+  for (const v of ['students', 'ECNEBI-TELEBE', 'Tələbə', 'DOKTORANT']) assert.equal(telebedir('ITT', v), true, v);
+  for (const v of ['TEHSIL-TELEBE-KREDIT-MUTEXESSISI', 'TELEBE-ISLERI-XIDMETI-MUTEXESSISI',
+    'ECNEBI-TELEBELERIN-QEBULU-SEKTORUNUN-MUDIRI', 'MAGISTRATURA-SOBE-MUDIRI', 'Tələbə işləri müdiri']) {
+    assert.equal(telebedir('Tədris şöbəsi', v), false, v);
+  }
+});
+
 test('təmizləmə: tələbənin adı silinir, keçidləri adsız tələbə keçidi olur, əməkdaşa toxunulmur', () => {
   const db = bazaAc(':memory:');
   const emekdas = db.prepare(`INSERT INTO emekdaslar (id, ad, soyad, sobe, vezife, aktiv, yaradilib, yenilenib)
