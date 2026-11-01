@@ -543,7 +543,9 @@ async function hadiseYukle(sifirla, sessiz = false) {
 }
 
 // ================================================================ 2. ƏMƏKDAŞLAR
-const E = { q: '', sobe: '', vezife: '', status: 'hamisi', siyahi: [] };
+// sehife/olcu: siyahı 20-20 göstərilir (1000+ əməkdaş bir cədvəldə həm yavaş açılır, həm axtarmaq çətindir)
+const E = { q: '', sobe: '', vezife: '', status: 'hamisi', siyahi: [], sehife: 0, olcu: 20 };
+const E_OLCULER = [20, 50, 100];
 let FILTR = null;
 const filtrlerAl = async () => { if (!FILTR) FILTR = await api('/api/filtrler'); return FILTR; };
 const secimler = (siyahi, secili, bos) => `<option value="">${bos}</option>${siyahi.map((v) => `<option${v === secili ? ' selected' : ''}>${esc(v)}</option>`).join('')}`;
@@ -566,11 +568,13 @@ async function emekdaslarSehife() {
       <select id="e-vezife" aria-label="Vəzifə"><option value="">Bütün vəzifələr</option></select>
     </div>
     <div class="filtr-setri" id="e-status"></div>
-    <section class="kart"><div class="cedvel-qab cerceve" id="e-siyahi"><div class="yuklenir">Yüklənir…</div></div></section>`;
+    <section class="kart"><div class="cedvel-qab cerceve" id="e-siyahi"><div class="yuklenir">Yüklənir…</div></div>
+      <div id="e-sehifeleme"></div></section>`;
   const q = $('#e-q');
-  q.addEventListener('input', debounce(() => { E.q = q.value; emekdaslarYukle(); }));
-  q.addEventListener('keydown', (e) => { if (e.key === 'Escape') { q.value = ''; E.q = ''; emekdaslarYukle(); } });
-  for (const [id, a] of [['#e-sobe', 'sobe'], ['#e-vezife', 'vezife']]) $(id).addEventListener('change', (e) => { E[a] = e.target.value; emekdaslarYukle(); });
+  // süzgəc dəyişəndə birinci səhifədən: köhnə səhifə nömrəsi yeni (qısa) siyahıda boş səhifə göstərməsin
+  q.addEventListener('input', debounce(() => { E.q = q.value; E.sehife = 0; emekdaslarYukle(); }));
+  q.addEventListener('keydown', (e) => { if (e.key === 'Escape') { q.value = ''; E.q = ''; E.sehife = 0; emekdaslarYukle(); } });
+  for (const [id, a] of [['#e-sobe', 'sobe'], ['#e-vezife', 'vezife']]) $(id).addEventListener('change', (e) => { E[a] = e.target.value; E.sehife = 0; emekdaslarYukle(); });
   filtrlerAl().then((f) => {
     $('#e-sobe').innerHTML = secimler(f.sobeler, E.sobe, 'Bütün şöbələr');
     $('#e-vezife').innerHTML = secimler(f.vezifeler, E.vezife, 'Bütün vəzifələr');
@@ -609,17 +613,24 @@ function emekdaslarCiz() {
   $('#e-status').innerHTML = `<div class="seq" role="group" aria-label="Bu günkü vəziyyət">${STATUSLAR
     .filter(([k]) => k !== 'gelmeyib' || isGunu(MEN.bugun))
     .map(([k, ad]) => `<button type="button" data-st="${k}" class="${E.status === k ? 'aktiv' : ''}" aria-pressed="${E.status === k}">${ad}<span class="n">${sayi[k]}</span></button>`).join('')}</div>`;
-  for (const d of $$('[data-st]')) d.addEventListener('click', () => { E.status = d.dataset.st; emekdaslarCiz(); });
+  for (const d of $$('[data-st]')) d.addEventListener('click', () => { E.status = d.dataset.st; E.sehife = 0; emekdaslarCiz(); });
   const f = STATUSLAR.find(([k]) => k === E.status)[2];
   const siyahi = E.siyahi.filter(f);
+  // vəziyyət sayları bütün siyahıdan, cədvəldə isə yalnız cari səhifə
+  E.sehife = Math.min(E.sehife, Math.max(0, Math.ceil(siyahi.length / E.olcu) - 1));
+  const gorunen = siyahi.slice(E.sehife * E.olcu, (E.sehife + 1) * E.olcu);
   $('#e-alt').textContent = `${reqem(E.siyahi.length)} əməkdaş${E.q || E.sobe || E.vezife ? ' (süzülmüş)' : ''} · bu gün binada ${reqem(sayi.binada)}`;
   const qab = $('#e-siyahi');
   qab.innerHTML = siyahi.length ? `<table><thead><tr><th>Əməkdaş</th><th>Şöbə</th><th>Vəzifə</th><th>Bu gün</th></tr></thead>
-    <tbody>${siyahi.map((e) => `<tr class="klik" data-id="${esc(e.id)}" tabindex="0">
+    <tbody>${gorunen.map((e) => `<tr class="klik" data-id="${esc(e.id)}" tabindex="0">
       <td><div class="adam">${avatar(e)}<div><b>${esc(tamAd(e))}</b><span class="alt">${esc(e.ata ? `ata adı: ${e.ata}` : '')}</span></div></div></td>
       <td>${esc(e.sobe)}</td><td>${esc(e.vezife)}</td><td>${buGunHucre(e)}</td></tr>`).join('')}</tbody></table>`
     : `<div class="bos">${E.q ? `<b>"${esc(E.q)}" üzrə əməkdaş tapılmadı</b>Yazılışı yoxlayın: "Eli" = "Əli", "huseyn" = "Hüseyn".`
       : E.siyahi.length ? '<b>Bu vəziyyətdə əməkdaş yoxdur</b>' : '<b>Əməkdaş yoxdur</b>Kamera sistemi əməkdaş siyahısını göndərəndən sonra burada görünəcək.'}</div>`;
+  sehifelemeQur($('#e-sehifeleme'), siyahi.length, E, () => {
+    emekdaslarCiz();
+    qab.closest('.kart').scrollIntoView({ block: 'start', behavior: 'smooth' });
+  }, E_OLCULER);
   for (const tr of $$('tr[data-id]', qab)) {
     const ac = () => { location.hash = kartUrl(tr.dataset.id); };
     tr.addEventListener('click', ac);
@@ -831,9 +842,10 @@ function sehifeNomreleri(cari, cem) {
   return r;
 }
 
-function sehifelemeQur(qab, say, v, deyisdi) {
+// olculer: seçim siyahısı (Hesabat 25-dən, Əməkdaşlar 20-dən başlayır); ən kiçikdən az sətir varsa, səhifələmə görünmür
+function sehifelemeQur(qab, say, v, deyisdi, olculer = OLCULER) {
   if (!qab) return;
-  if (say <= OLCULER[0]) { qab.innerHTML = ''; return; }
+  if (say <= olculer[0]) { qab.innerHTML = ''; return; }
   const cem = Math.ceil(say / v.olcu);
   const bas = v.sehife * v.olcu;
   qab.innerHTML = `<div class="sehifeleme">
@@ -844,7 +856,7 @@ function sehifelemeQur(qab, say, v, deyisdi) {
     : `<button type="button" data-s="${i}"${i === v.sehife ? ' aria-current="page"' : ''} aria-label="Səhifə ${i + 1}">${i + 1}</button>`)).join('')}
       <button type="button" data-s="${v.sehife + 1}"${v.sehife >= cem - 1 ? ' disabled' : ''} aria-label="Növbəti səhifə">›</button>
     </nav>
-    <label class="olcu-sec">Səhifədə <select aria-label="Səhifədə neçə sətir">${OLCULER.map((o) => `<option${o === v.olcu ? ' selected' : ''}>${o}</option>`).join('')}</select></label>
+    <label class="olcu-sec">Səhifədə <select aria-label="Səhifədə neçə sətir">${olculer.map((o) => `<option${o === v.olcu ? ' selected' : ''}>${o}</option>`).join('')}</select></label>
   </div>`;
   for (const b of $$('button[data-s]', qab)) b.addEventListener('click', () => { v.sehife = Number(b.dataset.s); deyisdi(); });
   $('select', qab).addEventListener('change', (e) => {
