@@ -223,7 +223,8 @@ export function apiRouter(db, k, log = console) {
   });
 
   r.get('/emekdaslar/:id/sekil', (req, res) => {
-    const x = db.prepare('SELECT sekil FROM emekdaslar WHERE id = ?').get(req.params.id);
+    // HR-in şəkli (telefon/kompüter) varsa o, yoxsa kameranın şəkli
+    const x = db.prepare('SELECT COALESCE(hr_sekil, sekil) AS sekil FROM emekdaslar WHERE id = ?').get(req.params.id);
     if (!x?.sekil) return res.status(404).end();
     res.set({ 'Content-Type': 'image/jpeg', 'Cache-Control': 'private, max-age=3600' }).send(Buffer.from(x.sekil));
   });

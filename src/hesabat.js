@@ -38,7 +38,8 @@ export function emekdasSec(db, { q = '', sobe = '', vezife = '', emekdas = '', h
   for (const s of sozler(q).slice(0, 8)) { sert.push("axtaris LIKE ? ESCAPE '\\'"); par.push(`%${s.replace(/[\\%_]/g, '\\$&')}%`); }
   const where = sert.length ? `WHERE ${sert.join(' AND ')}` : '';
   // SQLite "Ə", "İ", "Ş"-ni Z-dən sonra qoyur — sıralama Azərbaycan əlifbası ilə JS-də
-  return db.prepare(`SELECT id, ad, soyad, ata, sobe, vezife, aktiv, sekil IS NOT NULL AS sekil_var, yaradilib
+  return db.prepare(`SELECT id, ad, soyad, ata, sobe, vezife, aktiv, menbe, hr_duzelib,
+                     (hr_sekil IS NOT NULL OR sekil IS NOT NULL) AS sekil_var, yaradilib
                      FROM emekdaslar ${where}`).all(...par)
     .sort((a, b) => AZ.compare(a.soyad, b.soyad) || AZ.compare(a.ad, b.ad) || AZ.compare(a.ata, b.ata));
 }

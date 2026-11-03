@@ -81,12 +81,15 @@ export function ingestRouter(db, k, log = console) {
     const siyahi = req.body?.emekdaslar;
     if (!Array.isArray(siyahi)) return res.status(400).json({ xeta: 'emekdaslar siyahı olmalıdır' });
     const indi = indiYaz();
-    const movcud = new Map(db.prepare('SELECT id, sekil_hash, aktiv FROM emekdaslar').all().map((e) => [e.id, e]));
+    const movcud = new Map(db.prepare('SELECT id, sekil_hash, aktiv, menbe FROM emekdaslar').all().map((e) => [e.id, e]));
     const yaz = db.prepare(`INSERT INTO emekdaslar (id, ad, soyad, ata, sobe, vezife, aktiv, gozlenen_hash, axtaris, yaradilib, yenilenib)
       VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)
-      ON CONFLICT(id) DO UPDATE SET ad = excluded.ad, soyad = excluded.soyad, ata = excluded.ata, sobe = excluded.sobe,
-        vezife = excluded.vezife, aktiv = 1, gozlenen_hash = excluded.gozlenen_hash, axtaris = excluded.axtaris,
+      ON CONFLICT(id) DO UPDATE SET ad = CASE WHEN emekdaslar.hr_duzelib = 1 THEN emekdaslar.ad ELSE excluded.ad END, soyad = CASE WHEN emekdaslar.hr_duzelib = 1 THEN emekdaslar.soyad ELSE excluded.soyad END,
+        ata = CASE WHEN emekdaslar.hr_duzelib = 1 THEN emekdaslar.ata ELSE excluded.ata END, sobe = CASE WHEN emekdaslar.hr_duzelib = 1 THEN emekdaslar.sobe ELSE excluded.sobe END,
+        vezife = CASE WHEN emekdaslar.hr_duzelib = 1 THEN emekdaslar.vezife ELSE excluded.vezife END, axtaris = CASE WHEN emekdaslar.hr_duzelib = 1 THEN emekdaslar.axtaris ELSE excluded.axtaris END,
+        aktiv = CASE WHEN emekdaslar.silinib = 1 THEN 0 ELSE 1 END, gozlenen_hash = excluded.gozlenen_hash,
         yenilenib = excluded.yenilenib`);
+    // HR-in redaktə etdiyi sahələri və sildiyi əməkdaşı kamera siyahısı geri qaytarmır (HR düzəlişi üstündür)
     const gelen = new Set();
     const sekilLazim = [];
     let yeni = 0;
@@ -109,11 +112,12 @@ export function ingestRouter(db, k, log = console) {
         if (!kohne) yeni += 1;
         if (hash && (!kohne || kohne.sekil_hash !== hash)) sekilLazim.push(id);
       }
-      // siyahıda olmayanlar kamera bazasından çıxıb: silinmir (keçmiş hadisələri hesabatda qalsın), deaktiv olur
+      // siyahıda olmayanlar kamera bazasından çıxıb: silinmir (keçmiş hadisələri hesabatda qalsın), deaktiv olur.
+      // Paneldən əlavə olunan kadr (menbe 'el') kamera siyahısında heç vaxt olmur — ona toxunulmur.
       const deaktivEt = db.prepare('UPDATE emekdaslar SET aktiv = 0, yenilenib = ? WHERE id = ?');
-      for (const [id, e] of movcud) if (!gelen.has(id) && e.aktiv) deaktivEt.run(indi, id);
+      for (const [id, e] of movcud) if (!gelen.has(id) && e.aktiv && e.menbe === 'kamera') deaktivEt.run(indi, id);
     });
-    const deaktiv = [...movcud.entries()].filter(([id, e]) => !gelen.has(id) && e.aktiv).length;
+    const deaktiv = [...movcud.entries()].filter(([id, e]) => !gelen.has(id) && e.aktiv && e.menbe === 'kamera').length;
     log.info(`ingest: əməkdaş siyahısı — ${gelen.size} nəfər, ${yeni} yeni, ${deaktiv} deaktiv, ${sekilLazim.length} şəkil lazım`
       + (telebe ? `, ${telebe} tələbə qəbul edilmədi (kamera yenilənməlidir)` : ''));
     res.json({ yeni, yenilenen: gelen.size - yeni, deaktiv, telebe, sekil_lazim: sekilLazim });

@@ -69,6 +69,15 @@ CREATE TABLE IF NOT EXISTS kadr_esleme (
   yaradilib TEXT NOT NULL,
   PRIMARY KEY (sexs_acar, emekdas_id)
 );
+-- telefondan şəkil linkləri: token özü saxlanmır (yalnız sha256), 24 saat, bir dəfəlik
+CREATE TABLE IF NOT EXISTS sekil_linkleri (
+  token_hash TEXT PRIMARY KEY,
+  emekdas_id TEXT NOT NULL REFERENCES emekdaslar(id),
+  kim TEXT NOT NULL,
+  yaradilib TEXT NOT NULL,
+  bitir INTEGER NOT NULL,               -- ms
+  istifade TEXT                         -- şəkil alınan vaxt; doludursa link bağlıdır
+);
 `;
 
 /** Başlanğıc şablonlar (HR ilə razılaşdırılıb, 03.11.2026); saatlara nahar fasiləsi daxildir. Sonra paneldən dəyişir. */
@@ -100,6 +109,12 @@ export function bazaAc(yol) {
   // köhnə bazaya yeni sütunlar (sonradan əlavə olunanlar) — mövcud məlumat itmir
   sutunElave(db, 'hadiseler', 'adam_no', 'TEXT');     // tanınmayanın qlobal nömrəsi (G7)
   sutunElave(db, 'hadiseler', 'sekil', 'BLOB');       // tanınmayanın kameradakı üzü (30 gün)
+  // kadr idarəsi: əl ilə əlavə (menbe 'el'), HR düzəlişi və silinmə — kamera sinxronu bunlara toxunmur
+  sutunElave(db, 'emekdaslar', 'menbe', "TEXT NOT NULL DEFAULT 'kamera'");
+  sutunElave(db, 'emekdaslar', 'hr_duzelib', 'INTEGER NOT NULL DEFAULT 0');
+  sutunElave(db, 'emekdaslar', 'silinib', 'INTEGER NOT NULL DEFAULT 0');
+  sutunElave(db, 'emekdaslar', 'hr_sekil', 'BLOB');   // HR-in (telefon/kompüter) şəkli — kameranınkından üstündür
+  sutunElave(db, 'emekdaslar', 'hr_sekil_vaxt', 'TEXT');
   sablonlariYaz(db);
   return db;
 }

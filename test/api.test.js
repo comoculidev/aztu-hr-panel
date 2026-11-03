@@ -356,3 +356,37 @@ test('kadr yükləmə: Excel olmayan və boş fayl 400', async () => {
     assert.equal(c.status, 400);
   }
 });
+
+// ---------------------------------------------------------------- kadr əlavə etmə, redaktə, silmə
+test('sinxron: HR düzəlişi, silinmə və əl ilə kadr qorunur', async () => {
+  const kuki = await giris();
+  const elave = db.prepare(`INSERT INTO emekdaslar (id, ad, soyad, menbe, hr_duzelib, silinib, aktiv, axtaris, yaradilib, yenilenib)
+    VALUES (?, ?, ?, ?, ?, ?, ?, '', '2026-01-01', '2026-01-01')`);
+  elave.run('k1', 'Nərmin', 'Qasımova', 'kamera', 1, 0, 1);
+  elave.run('k2', 'Silinən', 'Adam', 'kamera', 0, 1, 0);
+  elave.run('el-000000000001', 'Paneldən', 'Kadr', 'el', 0, 0, 1);
+  // digər testlərin kamera əməkdaşları da siyahıda qalsın (yoxsa deaktiv olardı)
+  const qalan = db.prepare("SELECT id, ad, soyad, ata, sobe, vezife FROM emekdaslar WHERE aktiv = 1 AND menbe = 'kamera' AND id <> 'k1'").all()
+    .map((e) => ({ ...e }));
+  try {
+    const r = await ingest('emekdaslar', { emekdaslar: [...qalan, { id: 'k1', ad: 'Nermin2', soyad: 'Q' },
+      { id: 'k2', ad: 'X', soyad: 'Y' }, { id: 'k3', ad: 'Yeni', soyad: 'Z' }] });
+    assert.equal(r.status, 200);
+    const s = (id) => db.prepare('SELECT ad, soyad, aktiv, menbe FROM emekdaslar WHERE id = ?').get(id);
+    assert.deepEqual([s('k1').ad, s('k1').soyad], ['Nərmin', 'Qasımova']);
+    assert.equal(s('k2').aktiv, 0);
+    assert.equal(s('el-000000000001').aktiv, 1);
+    assert.deepEqual([s('k3').aktiv, s('k3').menbe], [1, 'kamera']);
+    // HR şəkli kameranınkından üstündür
+    const hr = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe1]), Buffer.alloc(50, 7)]);
+    db.prepare("UPDATE emekdaslar SET sekil = ?, hr_sekil = ? WHERE id = 'k1'").run(Buffer.from(JPEG, 'base64'), hr);
+    const c = await fetch(`${url}/api/emekdaslar/k1/sekil`, { headers: { Cookie: kuki } });
+    assert.deepEqual(Buffer.from(await c.arrayBuffer()), hr);
+    const siyahi = (await sorgu('/api/emekdaslar', { kuki })).json;
+    const el = siyahi.find((e) => e.id === 'el-000000000001');
+    assert.deepEqual([el.menbe, el.hr_duzelib], ['el', 0]);
+    assert.equal(siyahi.find((e) => e.id === 'k1').sekil_var, 1);
+  } finally {
+    db.prepare("DELETE FROM emekdaslar WHERE id IN ('k1', 'k2', 'k3', 'el-000000000001')").run();
+  }
+});
