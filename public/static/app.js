@@ -1,4 +1,5 @@
-// AzTU HR paneli — brauzer tərəfi (çərçivəsiz). Səhifələr: #/umumi, #/emekdaslar, #/emekdas/<id>, #/hesabat, #/qrafikler.
+// AzTU HR paneli — brauzer tərəfi (çərçivəsiz). Kadr əlavə/redaktə/silmə və QR şəkil linki: bölmə 6.
+// Səhifələr: #/umumi, #/emekdaslar, #/emekdas/<id>, #/hesabat, #/qrafikler.
 // Təhlükəsizlik: serverdən gələn hər mətn esc() ilə və ya textContent ilə yazılır. CSP daxili style atributunu
 // qadağan edir — mövqe/en dəyərləri data-x / data-w atributlarından JS ilə (el.style) qoyulur.
 
@@ -562,7 +563,8 @@ const STATUSLAR = [
 async function emekdaslarSehife() {
   sehife.innerHTML = `
     <div class="sehife-bas"><div><h1>Əməkdaşlar</h1><p id="e-alt">&nbsp;</p></div>
-      <div class="sag"><span class="yenilenib" id="yenilenib"></span><button class="dugme" type="button" id="e-kadr">Kadr siyahısı yüklə</button></div></div>
+      <div class="sag"><span class="yenilenib" id="yenilenib"></span><button class="dugme" type="button" id="e-kadr">Kadr siyahısı yüklə</button>
+        <button class="dugme esasli" type="button" id="e-elave">${IKON_KADR.elave}Kadr əlavə et</button></div></div>
     <div class="filtr-setri">
       <label class="sahe">${IKON.axtar}<input type="search" id="e-q" placeholder="Ad, soyad, ata adı, şöbə, vəzifə…" value="${esc(E.q)}" aria-label="Axtarış"></label>
       <select id="e-sobe" aria-label="Şöbə"><option value="">Bütün şöbələr</option></select>
@@ -572,6 +574,7 @@ async function emekdaslarSehife() {
     <section class="kart"><div class="cedvel-qab cerceve" id="e-siyahi"><div class="yuklenir">Yüklənir…</div></div>
       <div id="e-sehifeleme"></div></section>`;
   $('#e-kadr').addEventListener('click', kadrPencere);
+  $('#e-elave').addEventListener('click', () => kadrFormaPencere());
   const q = $('#e-q');
   // süzgəc dəyişəndə birinci səhifədən: köhnə səhifə nömrəsi yeni (qısa) siyahıda boş səhifə göstərməsin
   q.addEventListener('input', debounce(() => { E.q = q.value; E.sehife = 0; emekdaslarYukle(); }));
@@ -625,7 +628,7 @@ function emekdaslarCiz() {
   const qab = $('#e-siyahi');
   qab.innerHTML = siyahi.length ? `<table><thead><tr><th>Əməkdaş</th><th>Şöbə</th><th>Vəzifə</th><th>Qrafik</th><th>Bu gün</th></tr></thead>
     <tbody>${gorunen.map((e) => `<tr class="klik" data-id="${esc(e.id)}" tabindex="0">
-      <td><div class="adam">${avatar(e)}<div><b>${esc(tamAd(e))}</b><span class="alt">${esc(e.ata ? `ata adı: ${e.ata}` : '')}</span></div></div></td>
+      <td><div class="adam">${avatar(e)}<div><b>${esc(tamAd(e))}</b>${e.menbe === 'el' ? ' <span class="nisan info yox mini">Paneldən</span>' : ''}<span class="alt">${esc(e.ata ? `ata adı: ${e.ata}` : '')}</span></div></div></td>
       <td>${esc(e.sobe)}</td><td>${esc(e.vezife)}</td><td><span title="${esc(e.qrafik?.ad ?? '')}">${esc(qrafikMetni(e.qrafik))}</span></td><td>${buGunHucre(e)}</td></tr>`).join('')}</tbody></table>`
     : `<div class="bos">${E.q ? `<b>"${esc(E.q)}" üzrə əməkdaş tapılmadı</b>Yazılışı yoxlayın: "Eli" = "Əli", "huseyn" = "Hüseyn".`
       : E.siyahi.length ? '<b>Bu vəziyyətdə əməkdaş yoxdur</b>' : '<b>Əməkdaş yoxdur</b>Kamera sistemi əməkdaş siyahısını göndərəndən sonra burada görünəcək.'}</div>`;
@@ -690,7 +693,12 @@ async function emekdasSehife(id) {
         <div><h2>${esc(tamAd(e))}</h2>
           <div class="vezife">${esc([e.vezife, e.sobe].filter(Boolean).join(' · '))}${e.ata ? ` · ata adı: ${esc(e.ata)}` : ''}</div>
           <div class="nisanlar">${status}${b.gecikmeSan > 0 ? `<span class="nisan warn">${muddetSoz(b.gecikmeSan)} gecikib</span>` : ''}
-            ${e.aktiv ? '' : '<span class="nisan boz">kamera bazasında deyil</span>'}</div></div>
+            ${e.aktiv ? '' : `<span class="nisan boz">${e.silinib ? 'silinib' : 'kamera bazasında deyil'}</span>`}
+            ${e.menbe === 'el' ? '<span class="nisan info yox">Paneldən əlavə olunub</span>' : e.hr_duzelib ? '<span class="nisan info yox">HR düzəlişi</span>' : ''}</div>
+          ${e.silinib ? '' : `<div class="profil-dugmeler">
+            <button class="dugme" type="button" id="k-redakte">${IKON_KADR.redakte}Redaktə et</button>
+            <button class="dugme" type="button" id="k-sekil">${IKON_KADR.qr}Şəkil linki</button>
+            <button class="dugme tehlukeli-x" type="button" id="k-sil">${IKON_KADR.sil}Sil</button></div>`}</div>
       </div>
       <div class="bugun-setri">
         <div><div class="etiket">Bu gün gəliş</div><div class="deyer">${saatQisa(b.gelis)}</div></div>
@@ -751,6 +759,9 @@ async function emekdasSehife(id) {
       qab.classList.remove('gozle');
     }
   };
+  $('#k-redakte')?.addEventListener('click', () => kadrFormaPencere(e));
+  $('#k-sekil')?.addEventListener('click', () => sekilLinkPencere(e.id, tamAd(e)));
+  $('#k-sil')?.addEventListener('click', () => kadrSilPencere(e));
   qrafikBlokuYukle(id);
   muddetQur($('#t-muddet'), T.m, ['son7', 'buay', 'kecenay', 'araliq'], yukle);
   $('#t-excel').addEventListener('click', (ev) => excelEndir(new URLSearchParams({ bas: T.m.bas, son: T.m.son, emekdas: id }), ev.currentTarget));
@@ -1314,6 +1325,161 @@ function kadrNeticeCiz(qab, n) {
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  }));
+}
+
+// ================================================================ 6. KADR İDARƏSİ
+// Paneldən kadr əlavə etmə, redaktə, silmə və telefondan şəkil linki (QR). Şəkil yalnız paneldə saxlanır.
+const KADR_SAHELERI = [['ad', 'Ad', true, 100], ['soyad', 'Soyad', true, 100], ['ata', 'Ata adı', false, 100],
+  ['sobe', 'Şöbə', false, 200], ['vezife', 'Vəzifə', false, 200]];
+const IKON_KADR = {
+  redakte: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/></svg>',
+  qr: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="6" height="6"/><rect x="14" y="4" width="6" height="6"/><rect x="4" y="14" width="6" height="6"/><path d="M14 14h2v2h-2zM18 18h2v2h-2zM14 18h2M18 14h2"/></svg>',
+  sil: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>',
+  elave: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
+};
+
+/** Şəkli brauzerdə ən çox 1024 px JPEG-ə kiçildir (server yalnız JPEG qəbul edir; böyük foto göndərilmir) */
+function sekilKicilt(fayl, maks = 1024) {
+  return new Promise((ok, red) => {
+    const oxu = new FileReader();
+    oxu.onerror = () => red(new Error('Şəkil oxunmadı'));
+    oxu.onload = () => {
+      const img = new Image();
+      img.onerror = () => red(new Error('Bu şəkil formatı oxunmadı (JPEG və ya PNG seçin)'));
+      img.onload = () => {
+        const k = Math.min(1, maks / Math.max(img.naturalWidth, img.naturalHeight));
+        const cv = document.createElement('canvas');
+        cv.width = Math.round(img.naturalWidth * k);
+        cv.height = Math.round(img.naturalHeight * k);
+        cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+        cv.toBlob((b) => (b ? ok(b) : red(new Error('Şəkil hazırlanmadı'))), 'image/jpeg', 0.85);
+      };
+      img.src = oxu.result;
+    };
+    oxu.readAsDataURL(fayl);
+  });
+}
+
+/** Əlavə (e yoxdur) və ya redaktə pəncərəsi */
+async function kadrFormaPencere(e = null) {
+  const sablonlar = e ? [] : await api('/api/qrafik/sablonlar').catch(() => []);
+  const d = pencere(`${pencereBas(e ? 'Kadrı redaktə et' : 'Kadr əlavə et')}
+    <form class="forma kadr-forma" id="kf-forma" novalidate>
+      ${KADR_SAHELERI.map(([k, ad, mecburi, maks]) => `<label${k === 'sobe' || k === 'vezife' ? ' class="genis"' : ''}><span>${ad}${mecburi ? ' <span class="mecburi">*</span>' : ''}</span>
+        <input type="text" id="kf-${k}" maxlength="${maks}" value="${esc(e?.[k] ?? '')}"${mecburi ? ' required' : ''} autocomplete="off"></label>`).join('')}
+      ${e ? '' : `<label class="genis">İş qrafiki<select id="kf-sablon">${sablonlar.map((s) => `<option value="${s.id}"${s.acar === 'tam_1' ? ' selected' : ''}>${esc(s.ad)} (${esc(qrafikMetni(s))})</option>`).join('')}
+        <option value="">Standart (${esc(MEN.isBaslama)}–${esc(MEN.isBitme)})</option></select></label>`}
+    </form>
+    ${e?.menbe === 'kamera' ? '<div class="alt-metn">Kamera bazasından gələn əməkdaşdır: dəyişiklik HR düzəlişi kimi saxlanır, kamera siyahısı onu yenidən yazmır.</div>'
+    : e ? '' : '<div class="alt-metn">Növbəti addımda telefonla şəkil çəkmək üçün QR kod yaranacaq.</div>'}
+    <div class="xeta-yer"></div>
+    <div class="dugmeler"><button class="dugme" type="button" data-bagla>Ləğv et</button>
+      <button class="dugme esasli" type="submit" form="kf-forma" id="kf-yaz">${e ? 'Yadda saxla' : 'Əlavə et'}</button></div>`);
+  $('#kf-ad', d).focus();
+  $('#kf-forma', d).addEventListener('submit', (ev) => {
+    ev.preventDefault();
+    gozleIsle($('#kf-yaz', d), async () => {
+      const g = Object.fromEntries(KADR_SAHELERI.map(([k]) => [k, $(`#kf-${k}`, d).value.trim()]));
+      if (!g.ad || !g.soyad) throw new Error('Ad və soyad məcburidir');
+      if (e) {
+        await api(`/api/emekdaslar/${encodeURIComponent(e.id)}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(g) });
+        d.close();
+        emekdasSehife(e.id);
+        return;
+      }
+      const s = $('#kf-sablon', d)?.value;
+      const r = await postJson('/api/emekdaslar', { ...g, ...(s ? { sablon_id: Number(s) } : {}) });
+      sekilLinkPencere(r.id, `${g.ad} ${g.soyad}`, { yeni: true });
+    });
+  });
+}
+
+/** QR + link; telefondan şəkil gələnə qədər 3 saniyədən bir yoxlayır. Alternativ: kompüterdən yükləmə. */
+async function sekilLinkPencere(id, adSoyad, { yeni = false } = {}) {
+  const basliq = yeni ? 'Kadr əlavə olundu' : 'Şəkil linki';
+  let d = pencere(`${pencereBas(basliq)}<div class="yuklenir">Link hazırlanır…</div>`);
+  let l;
+  try {
+    l = await postJson(`/api/emekdaslar/${encodeURIComponent(id)}/sekil-link`, {});
+  } catch (x) {
+    d = pencere(`${pencereBas(basliq)}${xetaHtml(x)}`);
+    return;
+  }
+  if (!d.open) return;
+  const bitir = new Date(l.bitir);
+  d = pencere(`${pencereBas(basliq)}
+    <p class="sl-izah"><b>${esc(adSoyad)}</b> — telefonun kamerası ilə QR kodu skan edin. Açılan səhifədə şəkil çəkib
+      <b>"Kadrı əlavə et"</b> basın: şəkil kadrın kartına düşəcək.</p>
+    ${l.yerli ? `<div class="qeyd-qutu ayri">Panel <b>${esc(location.host)}</b> ünvanı ilə açılıb — telefon bu ünvanı aça bilməz.
+      Paneli şəbəkə ünvanı ilə açın (məs. <code>http://192.0.2.50:3000</code>) və ya serverdə <code>PANEL_URL</code> təyin edin.</div>` : ''}
+    <div class="sl-qr" id="sl-qr"><img src="${l.qr}" alt="Şəkil linkinin QR kodu" width="232" height="232"></div>
+    <div class="sl-link" id="sl-link"><input type="text" readonly value="${esc(l.url)}" id="sl-url" aria-label="Şəkil linki">
+      <button class="dugme" type="button" id="sl-kopyala">Kopyala</button></div>
+    <div class="alt-metn" id="sl-muddet">Link ${[bitir.getDate(), bitir.getMonth() + 1].map((x) => String(x).padStart(2, '0')).join('.')} ${[bitir.getHours(), bitir.getMinutes()].map((x) => String(x).padStart(2, '0')).join(':')}-dək (24 saat) etibarlıdır və bir dəfə işləyir.</div>
+    <div class="sl-veziyyet" id="sl-veziyyet" role="status"><span class="nabiz"></span>Şəkil gözlənilir…</div>
+    <div class="xeta-yer"></div>
+    <div class="dugmeler">
+      <label class="dugme" id="sl-yukle-d">Kompüterdən yüklə<input type="file" accept="image/*" id="sl-fayl" class="gizli"></label>
+      <button class="dugme esasli" type="button" id="sl-hazir">Hazırdır</button></div>`);
+  const kartaKec = () => {
+    d.close();
+    if (location.hash === kartUrl(id)) emekdasSehife(id); else location.hash = kartUrl(id);
+  };
+  const geldi = (metn) => {
+    clearInterval(t);
+    $('#sl-qr', d).innerHTML = `<img class="sl-foto" src="${sekilUrl(id)}?v=${Date.now()}" alt="${esc(adSoyad)}">`;
+    $('#sl-link', d).hidden = true;
+    $('#sl-muddet', d).hidden = true;
+    $('#sl-veziyyet', d).className = 'sl-veziyyet ok';
+    $('#sl-veziyyet', d).textContent = metn;
+  };
+  const t = setInterval(async () => {
+    if (!d.open) { clearInterval(t); return; }
+    try {
+      const v = await api(`/api/emekdaslar/${encodeURIComponent(id)}/sekil-link`);
+      if (v.istifade) geldi('Şəkil telefondan alındı');
+      else if (!v.aciq) {
+        clearInterval(t);
+        $('#sl-veziyyet', d).className = 'sl-veziyyet';
+        $('#sl-veziyyet', d).textContent = 'Linkin vaxtı bitib — yeni link yaradın.';
+      }
+    } catch { /* şəbəkə xətası — növbəti dəfə yenidən */ }
+  }, 3000);
+  d.addEventListener('close', () => {
+    clearInterval(t);
+    if (location.hash === '#/emekdaslar') emekdaslarYukle();
+  }, { once: true });
+  $('#sl-kopyala', d).addEventListener('click', async (ev) => {
+    const inp = $('#sl-url', d);
+    try { await navigator.clipboard.writeText(inp.value); } catch { inp.select(); document.execCommand('copy'); }
+    ev.currentTarget.textContent = 'Kopyalandı';
+  });
+  $('#sl-fayl', d).addEventListener('change', (ev) => {
+    const f = ev.target.files?.[0];
+    ev.target.value = '';
+    if (f) {
+      gozleIsle($('#sl-hazir', d), async () => {
+        const b = await sekilKicilt(f);
+        await api(`/api/emekdaslar/${encodeURIComponent(id)}/sekil`, { method: 'POST', headers: { 'Content-Type': 'image/jpeg' }, body: b });
+        geldi('Şəkil kompüterdən yükləndi');
+      });
+    }
+  });
+  $('#sl-hazir', d).addEventListener('click', kartaKec);
+}
+
+function kadrSilPencere(e) {
+  const d = pencere(`${pencereBas('Kadrı sil')}
+    <p><b>${esc(tamAd(e))}</b> əməkdaşlar siyahısından silinsin?</p>
+    <div class="alt-metn">Keçmiş giriş-çıxış hadisələri hesabatlarda qalır.${e.menbe === 'kamera' ? ' Kamera siyahısı bu əməkdaşı geri qaytarmayacaq.' : ''}</div>
+    <div class="xeta-yer"></div>
+    <div class="dugmeler"><button class="dugme" type="button" data-bagla>Ləğv et</button>
+      <button class="dugme tehlukeli" type="button" id="ks-sil">${IKON_KADR.sil}Sil</button></div>`);
+  $('#ks-sil', d).addEventListener('click', (ev) => gozleIsle(ev.currentTarget, async () => {
+    await api(`/api/emekdaslar/${encodeURIComponent(e.id)}`, { method: 'DELETE' });
+    d.close();
+    location.hash = '#/emekdaslar';
   }));
 }
 

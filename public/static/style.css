@@ -514,6 +514,7 @@ dialog.forma-pencere td .alt { display: block; font-size: 12px; color: var(--ink
 .sekil-sehife { min-height: 100vh; display: grid; align-content: start; justify-items: center; gap: 18px; padding: 24px 16px 40px; background: var(--bg); }
 .sekil-sehife .marka { color: var(--ink); padding: 0; }
 .sekil-sehife .marka small { color: var(--ink-3); }
+.sekil-sehife .marka div:last-child { display: block !important; }   /* panelin dar ekran qaydası (sidebar) burada keçmir */
 .sekil-kart { width: 100%; max-width: 420px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow); padding: 22px 20px; }
 .sekil-kart h1 { font-size: 20px; margin: 0 0 6px; letter-spacing: -.2px; overflow-wrap: anywhere; }
 .sekil-kart .alt-metn { display: block; margin: 0 0 16px; font-size: 13.5px; }
@@ -529,3 +530,27 @@ dialog.forma-pencere td .alt { display: block; font-size: 12px; color: var(--ink
 .netice-isare svg { width: 32px; height: 32px; }
 .netice-isare.ok { background: var(--ok-soft); color: var(--ok); }
 .netice-isare.xeta { background: var(--bad-soft); color: var(--bad); }
+
+/* ---------------------------------------------------------------- kadr idarəsi (panel) */
+.nisan.mini { font-size: 11px; padding: 0 7px; line-height: 18px; margin-left: 4px; vertical-align: 1px; }
+.profil-dugmeler { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+.dugme.tehlukeli { background: var(--bad); border-color: var(--bad); color: #fff; }
+.dugme.tehlukeli:hover { filter: brightness(1.08); background: var(--bad); }
+.dugme.tehlukeli-x { color: var(--bad); }
+.kadr-forma label { flex: 1 1 200px; }
+.kadr-forma label.genis { flex-basis: 100%; }
+.kadr-forma input, .kadr-forma select { width: 100%; }
+.mecburi { color: var(--bad); }
+.sl-izah { margin: 0; color: var(--ink-2); line-height: 1.5; }
+dialog.uz-pencere .sl-qr { display: grid; place-items: center; padding: 6px 0; }
+dialog.uz-pencere .sl-qr img { width: 232px; max-width: 100%; aspect-ratio: 1 / 1; background: #fff; padding: 8px; border-radius: 12px; border: 1px solid var(--line); object-fit: contain; }
+dialog.uz-pencere .sl-qr img.sl-foto { width: 200px; aspect-ratio: 3 / 4; object-fit: cover; padding: 0; background: var(--surface-3); }
+.sl-link { display: flex; gap: 8px; }
+.sl-link input { flex: 1; min-width: 0; font-size: 12.5px; color: var(--ink-2); }
+.sl-veziyyet { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 9px; background: var(--surface-3); color: var(--ink-2); font-weight: 600; font-size: 13.5px; }
+.sl-veziyyet.ok { background: var(--ok-soft); color: var(--ok); }
+.nabiz { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); animation: nabiz 1.2s ease-in-out infinite; flex: none; }
+@keyframes nabiz { 0%, 100% { opacity: .25; transform: scale(.8); } 50% { opacity: 1; transform: scale(1); } }
+label.dugme { cursor: pointer; }
+@media (max-width: 600px) { .profil-dugmeler .dugme { flex: 1 1 auto; } }
+.sl-link[hidden], .alt-metn[hidden] { display: none; }

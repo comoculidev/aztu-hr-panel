@@ -51,6 +51,18 @@ Dizayn və API razılaşması: [docs/dizayn.md](docs/dizayn.md).
 - Bütün dəyişikliklər tarixlə qüvvəyə minir: keçmiş günlər həmişə o günkü qrafiklə hesablanır, köhnə hesabatlar dəyişmir.
 - Hadisəsi olmayan iş günü "gəlməyib" sayılır (bayramlar v1-də nəzərə alınmır).
 
+## Kadr əlavə etmə, şəkil linki, redaktə və silmə
+- **Əməkdaşlar → Kadr əlavə et**: ad, soyad (məcburi), ata adı, şöbə, vəzifə, iş qrafiki şablonu. Yadda saxlananda
+  pəncərədə **QR kod və link** çıxır: telefonla skan edin, kamera açılır, şəkil çəkib **"Kadrı əlavə et"** basın — şəkil
+  kadrın kartına düşür (pəncərə özü görür). Alternativ: "Kompüterdən yüklə".
+- Link **24 saat** etibarlıdır və **bir dəfə** işləyir; kartdakı "Şəkil linki" yenisini yaradır (köhnəsi bağlanır).
+  Telefon panelin şəbəkəsində (universitet Wi-Fi) olmalıdır. Panel `localhost` ilə açılıbsa və ya nginx arxasındadırsa
+  `.env`-də `PANEL_URL` təyin edin (məs. `PANEL_URL=http://192.0.2.50:3000`).
+- Şəkil yalnız paneldə saxlanır, **üz tanıma sisteminə (kamera kompüterinə) getmir**.
+- Kartda **Redaktə et** və **Sil** hər əməkdaş üçündür. Kameradan gələn əməkdaşın redaktəsi "HR düzəlişi" kimi saxlanır —
+  kamera siyahısı onu yenidən yazmır; silinən əməkdaş gizlədilir (keçmiş hadisələri hesabatda qalır) və kamera onu geri
+  qaytarmır. Paneldən əlavə olunan kadr kamera siyahısında olmadığı üçün deaktiv olmur.
+
 ## Quraşdırma (server 192.0.2.50)
 Node.js ≥ 22.13 lazımdır (daxili `node:sqlite` üçün; tövsiyə: 24 LTS).
 

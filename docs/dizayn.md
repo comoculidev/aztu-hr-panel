@@ -55,7 +55,8 @@ Tam siyahı (bazadakı bütün əməkdaşlar; tələbələr yox):
                  "vezife": "Dosent", "sekil_hash": "sha1"}]}
 ```
 Cavab: `{"yeni": n, "yenilenen": m, "deaktiv": k, "sekil_lazim": ["id", ...]}`. Siyahıda olmayan əməkdaş silinmir,
-`aktiv = 0` olur (keçmiş hadisələri qalır).
+`aktiv = 0` olur (keçmiş hadisələri qalır). İstisnalar (03.11.2026): `hr_duzelib = 1` olanda ad/soyad/ata/şöbə/vəzifə
+yazılmır, `silinib = 1` olan aktivləşmir, `menbe = 'el'` (paneldən əlavə) deaktiv olmur.
 
 ### `POST /api/v1/ingest/sekiller`
 `{"sekiller": [{"id": "...", "jpeg": "<base64>"}]}` — yalnız `sekil_lazim` siyahısındakılar, ≤ 50 bir sorğuda.
@@ -124,6 +125,13 @@ Panel "Kamera sistemi: onlayn / son siqnal N dəq əvvəl" göstərir.
 `excel` | `el`), `kadr_melumati` (kadr Excel-indən: müəssisə, vəzifə, tip, ştat, iş vaxtı — FİN yox). Günün qrafiki:
 həmin tarixə qədər qüvvəyə minmiş son təyinat → şablondursa şablonun həmin tarixdəki saatı. API: `/api/qrafik/*`,
 `/api/emekdaslar/:id/qrafik`, `/api/kadr/*` (`src/qrafikApi.js`).
+
+## Kadr idarəsi (03.11.2026)
+Ətraflı: `docs/superpowers/specs/2026-11-03-kadr-elave-design.md`. `emekdaslar`-a `menbe` (`kamera` | `el`), `hr_duzelib`,
+`silinib`, `hr_sekil`, `hr_sekil_vaxt`; `sekil_linkleri` (tokenin sha256 heşi, 24 saat, bir dəfəlik). Məntiq
+`src/emekdasIdare.js`; panel API `POST/PUT/DELETE /api/emekdaslar[/:id]`, `/api/emekdaslar/:id/sekil-link`,
+`POST /api/emekdaslar/:id/sekil` (`src/emekdasApi.js`, QR — `qrcode` paketi); girişsiz telefon tərəfi
+`GET /sekil/:token` (səhifə) və `GET/POST /api/v1/sekil/:token` (`src/sekilApi.js`, yalnız `image/jpeg`).
 
 ## Mənim qərarlarım (istifadəçi sual vermədən başlamağı seçdi)
 - API (REST/JSON) + yerli növbə; serverdə SQLite (30 kamera üçün kifayətdir, sonra PostgreSQL-ə keçid asandır).
