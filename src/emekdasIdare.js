@@ -58,11 +58,13 @@ export function emekdasSil(db, id) {
   });
 }
 
-/** Kompüterdən yüklənən şəkil */
+/** Şəkil yazılır; açıq telefon linkləri bağlanır — kompüterdən yükləmədən sonra telefon şəkli onu üstündən yazmasın */
 export function sekilYaz(db, id, buf) {
   const r = db.prepare('UPDATE emekdaslar SET hr_sekil = ?, hr_sekil_vaxt = ? WHERE id = ? AND silinib = 0')
     .run(buf, indiYaz(), String(id));
-  return r.changes === 1;
+  if (r.changes !== 1) return false;
+  db.prepare('UPDATE sekil_linkleri SET bitir = 0 WHERE emekdas_id = ? AND istifade IS NULL').run(String(id));
+  return true;
 }
 
 const movcuddur = (db, id) => Boolean(db.prepare('SELECT 1 FROM emekdaslar WHERE id = ? AND silinib = 0').get(String(id)));
@@ -92,6 +94,7 @@ export function linkTap(db, token, indi = Date.now()) {
   const l = db.prepare(`SELECT l.bitir, l.istifade, e.id, e.ad, e.soyad, e.silinib FROM sekil_linkleri l
     JOIN emekdaslar e ON e.id = l.emekdas_id WHERE l.token_hash = ?`).get(tokenHash(token));
   if (!l) return { veziyyet: 'yox' };
+  if (l.istifade && !l.silinib) return { veziyyet: 'bagli', istifade: true };   // şəkil artıq alınıb
   if (l.istifade || l.bitir <= indi || l.silinib) return { veziyyet: 'bagli' };
   return { veziyyet: 'aciq', emekdas: { id: l.id, ad: l.ad, soyad: l.soyad } };
 }

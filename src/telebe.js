@@ -29,7 +29,8 @@ export function telebedir(sobe, vezife) {
 /** Serverdəki əməkdaş siyahısında tələbəyə oxşayanlar: [{id, ad, soyad, sobe, vezife, aktiv, hadise}] */
 export function telebeleriTap(db) {
   const say = db.prepare('SELECT COUNT(*) AS n FROM hadiseler WHERE emekdas_id = ?');
-  return db.prepare('SELECT id, ad, soyad, sobe, vezife, aktiv FROM emekdaslar').all()
+  // paneldən əlavə olunan kadr kamera sinxronundan gəlmir — tələbə ola bilməz ("1-ci dərəcəli mühəndis" rəqəmə görə tutulmasın)
+  return db.prepare("SELECT id, ad, soyad, sobe, vezife, aktiv FROM emekdaslar WHERE menbe = 'kamera'").all()
     .filter((e) => telebedir(e.sobe, e.vezife))
     .map((e) => ({ ...e, hadise: say.get(e.id).n }));
 }

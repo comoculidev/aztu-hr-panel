@@ -481,8 +481,11 @@ test('telefon şəkil linki: girişsiz, bir dəfəlik', async () => {
     assert.deepEqual(Buffer.from(await c.arrayBuffer()), jpeg);
     const tekrar = await gonder(token, jpeg);
     assert.equal(tekrar.status, 410);
-    assert.match((await tekrar.json()).xeta, /istifadə olunub/);
-    assert.equal((await sorgu(`/api/v1/sekil/${token}`)).status, 410);
+    const tj = await tekrar.json();
+    assert.equal(tj.istifade, true);                                         // telefon "qəbul olunub" göstərir
+    assert.match(tj.xeta, /artıq qəbul olunub/);
+    const sonra = await sorgu(`/api/v1/sekil/${token}`);
+    assert.deepEqual([sonra.status, sonra.json.istifade], [410, true]);
 
     const yeni = await linkAl();
     const png = await gonder(yeni, Buffer.from([0x89, 0x50, 0x4e, 0x47, 0, 0, 0, 0]));
@@ -496,6 +499,33 @@ test('telefon şəkil linki: girişsiz, bir dəfəlik', async () => {
     assert.equal((await sorgu(`/api/v1/sekil/${yeni}`)).status, 410);
     assert.equal((await gonder(yeni, jpeg)).status, 410);
   } finally {
+    db.prepare('DELETE FROM sekil_linkleri WHERE emekdas_id = ?').run(id);
+    db.prepare('DELETE FROM emekdaslar WHERE id = ?').run(id);
+  }
+});
+
+test('silinən kadrın keçmiş hadisələri hesabatda qalır', async () => {
+  const kuki = await giris();
+  const id = (await yaz('/api/emekdaslar', { ad: 'Rəna', soyad: 'Kərimli' }, kuki)).json.id;
+  db.prepare("UPDATE emekdaslar SET yaradilib = '2026-10-01 00:00:00' WHERE id = ?").run(id);
+  db.prepare(`INSERT INTO hadiseler (id, tarix, saat, kamera, istiqamet, kateqoriya, emekdas_id, alindi)
+    VALUES ('sil-1', '2026-10-15', '09:05:00', 'T1', 'giris', 'emekdas', ?, '')`).run(id);
+  try {
+    await yaz(`/api/emekdaslar/${id}`, {}, kuki, 'DELETE');
+    const h = (await sorgu('/api/hesabat?bas=2026-10-01&son=2026-10-31', { kuki })).json;
+    const x = h.xulase.find((e) => e.id === id);
+    assert.ok(x, 'silinən kadr keçmiş ayın hesabatında olmalıdır');
+    assert.equal(x.gelenGun, 1);
+    const bos = (await sorgu('/api/hesabat?bas=2026-09-01&son=2026-09-30', { kuki })).json;
+    assert.ok(!bos.xulase.some((e) => e.id === id));                         // hadisəsi olmayan dövrdə yoxdur
+    const c = await fetch(`${url}/api/hesabat/excel?bas=2026-10-01&son=2026-10-31`, { headers: { Cookie: kuki } });
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(Buffer.from(await c.arrayBuffer()));
+    let var_ = false;
+    wb.worksheets[0].eachRow((r) => { if (r.values.includes('Kərimli')) var_ = true; });
+    assert.ok(var_, 'Excel-də də olmalıdır');
+  } finally {
+    db.prepare("DELETE FROM hadiseler WHERE id = 'sil-1'").run();
     db.prepare('DELETE FROM sekil_linkleri WHERE emekdas_id = ?').run(id);
     db.prepare('DELETE FROM emekdaslar WHERE id = ?').run(id);
   }

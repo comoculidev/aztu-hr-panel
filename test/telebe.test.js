@@ -50,3 +50,10 @@ test('təmizləmə: tələbənin adı silinir, keçidləri adsız tələbə keç
   assert.deepEqual(telebeleriTap(db), []);
   db.close();
 });
+
+test('paneldən əlavə olunan kadr tələbə kimi tapılmır (vəzifədə rəqəm olsa da)', () => {
+  const db = bazaAc(':memory:');
+  db.prepare(`INSERT INTO emekdaslar (id, ad, soyad, sobe, vezife, menbe, axtaris, yaradilib, yenilenib)
+    VALUES ('el-0000000000aa', 'Tural', 'Nəbiyev', 'Energetika', '1-ci dərəcəli mühəndis', 'el', '', '2026-01-01', '2026-01-01')`).run();
+  assert.deepEqual(telebeleriTap(db), []);
+});

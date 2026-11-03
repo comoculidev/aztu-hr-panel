@@ -17,6 +17,7 @@
     try {
       const c = await fetch(API, { cache: 'no-store' });
       const j = await c.json().catch(() => ({}));
+      if (j.istifade) return goster('#ugur');
       if (!c.ok) return bagli(j.xeta || 'Link tapılmadı.');
       $('#ad').textContent = `${j.soyad} ${j.ad}`;
       goster('#forma');
@@ -80,7 +81,7 @@
     try {
       const c = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'image/jpeg' }, body: blob });
       const j = await c.json().catch(() => ({}));
-      if (c.ok) return goster('#ugur');
+      if (c.ok || j.istifade) return goster('#ugur');
       if (c.status === 410 || c.status === 404) return bagli(j.xeta || 'Link işləmir.');
       xeta(j.xeta || 'Şəkil göndərilmədi, yenidən cəhd edin.');
     } catch {

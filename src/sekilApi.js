@@ -5,6 +5,9 @@ import express from 'express';
 import { jpegdir, linkTap, linkleSekilYaz } from './emekdasIdare.js';
 
 const BAGLI = 'Link vaxtı keçib və ya istifadə olunub. HR-dən yeni link istəyin.';
+// şəkil artıq alınıb (məs. birinci göndərişin cavabı Wi-Fi-da itib, istifadəçi yenidən basıb) — telefon uğuru göstərir
+const ALINIB = { xeta: 'Şəkil artıq qəbul olunub.', istifade: true };
+const bagliCavab = (res, l) => res.status(410).json(l.istifade ? ALINIB : { xeta: BAGLI });
 
 export function sekilRouter(db, log = console) {
   const r = express.Router();
@@ -12,7 +15,7 @@ export function sekilRouter(db, log = console) {
   r.get('/:token', (req, res) => {
     const l = linkTap(db, req.params.token);
     if (l.veziyyet === 'yox') return res.status(404).json({ xeta: 'Link tapılmadı' });
-    if (l.veziyyet === 'bagli') return res.status(410).json({ xeta: BAGLI });
+    if (l.veziyyet === 'bagli') return bagliCavab(res, l);
     res.set('Cache-Control', 'no-store').json({ ad: l.emekdas.ad, soyad: l.emekdas.soyad });
   });
 
@@ -23,7 +26,7 @@ export function sekilRouter(db, log = console) {
     if (!jpegdir(req.body)) return res.status(400).json({ xeta: 'Şəkil JPEG olmalıdır' });
     const n = linkleSekilYaz(db, req.params.token, req.body);
     if (n === 'yox') return res.status(404).json({ xeta: 'Link tapılmadı' });
-    if (n === 'bagli') return res.status(410).json({ xeta: BAGLI });
+    if (n === 'bagli') return bagliCavab(res, linkTap(db, req.params.token));
     log.info(`kadr: telefondan şəkil alındı — ${l.emekdas?.ad ?? ''} ${l.emekdas?.soyad ?? ''}`.trim());
     res.json({ ok: true });
   });

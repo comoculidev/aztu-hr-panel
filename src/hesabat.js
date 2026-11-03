@@ -28,10 +28,14 @@ export function araliq(q) {
 }
 
 /** Əməkdaşları süzür: q (ad, soyad, ata adı, şöbə, vəzifə — diakritiksiz), şöbə, vəzifə, id */
-export function emekdasSec(db, { q = '', sobe = '', vezife = '', emekdas = '', hamisi = false } = {}) {
+export function emekdasSec(db, { q = '', sobe = '', vezife = '', emekdas = '', hamisi = false, araliq: dovr = null } = {}) {
   const sert = [];
   const par = [];
-  if (!hamisi && !emekdas) sert.push('aktiv = 1');
+  // hesabat dövrü verilibsə: silinmiş/deaktiv əməkdaş həmin dövrdə keçidi varsa hesabatda qalır (keçmiş itməsin)
+  if (!hamisi && !emekdas && dovr) {
+    sert.push('(aktiv = 1 OR EXISTS (SELECT 1 FROM hadiseler h WHERE h.emekdas_id = emekdaslar.id AND h.tarix BETWEEN ? AND ?))');
+    par.push(dovr.bas, dovr.son);
+  } else if (!hamisi && !emekdas) sert.push('aktiv = 1');
   if (emekdas) { sert.push('id = ?'); par.push(emekdas); }
   if (sobe) { sert.push('sobe = ?'); par.push(sobe); }
   if (vezife) { sert.push('vezife = ?'); par.push(vezife); }

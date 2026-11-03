@@ -115,3 +115,23 @@ test('sekilYaz: kompüterdən şəkil; yoxdursa false', () => {
   assert.deepEqual(Buffer.from(setir(db, id).hr_sekil), JPEG);
   assert.equal(sekilYaz(db, 'yoxdur', JPEG), false);
 });
+
+test('sekilYaz (kompüterdən): açıq telefon linki bağlanır — sonradan gələn şəkil üstünə yazmasın', () => {
+  const db = bazaAc(':memory:');
+  const id = emekdasElave(db, { ad: 'Tural', soyad: 'Nəbiyev' });
+  const { token } = linkYarat(db, id, 'hr');
+  assert.equal(sekilYaz(db, id, JPEG), true);
+  assert.equal(linkTap(db, token).veziyyet, 'bagli');
+  assert.equal(linkleSekilYaz(db, token, JPEG2), 'bagli');
+  assert.deepEqual(Buffer.from(setir(db, id).hr_sekil), JPEG);
+});
+
+test('linkTap: istifadə olunmuş link "istifade" bildirir (cavabı itən telefon uğuru görsün)', () => {
+  const db = bazaAc(':memory:');
+  const id = emekdasElave(db, { ad: 'Tural', soyad: 'Nəbiyev' });
+  const { token } = linkYarat(db, id, 'hr');
+  linkleSekilYaz(db, token, JPEG);
+  assert.deepEqual(linkTap(db, token), { veziyyet: 'bagli', istifade: true });
+  const yeni = linkYarat(db, id, 'hr', 1_000);
+  assert.deepEqual(linkTap(db, yeni.token, yeni.bitir + 1), { veziyyet: 'bagli' });
+});

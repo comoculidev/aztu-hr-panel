@@ -243,7 +243,7 @@ export function apiRouter(db, k, log = console) {
   r.get('/hesabat', (req, res) => {
     const { bas, son } = araliq(req.query);
     const f = hesabatFiltri(req.query);
-    const h = hesabatQur(db, k, emekdasSec(db, f), bas, son);
+    const h = hesabatQur(db, k, emekdasSec(db, { ...f, araliq: { bas, son } }), bas, son);
     // bütün əməkdaşlar üçün gün-gün cədvəl böyükdür: ekrana yalnız xülasə, seçilmiş əməkdaş üçün günlər də
     res.json({ bas, son, xulase: h.xulase, setirler: f.emekdas ? h.setirler : undefined });
   });
@@ -251,7 +251,7 @@ export function apiRouter(db, k, log = console) {
   r.get('/hesabat/excel', asinxron(async (req, res) => {
     const { bas, son } = araliq(req.query);
     const f = hesabatFiltri(req.query);
-    const emekdaslar = emekdasSec(db, f);
+    const emekdaslar = emekdasSec(db, { ...f, araliq: { bas, son } });
     const h = hesabatQur(db, k, emekdaslar, bas, son);
     const filtr = [f.q && `axtarış "${f.q}"`, f.sobe && `şöbə: ${f.sobe}`, f.vezife && `vəzifə: ${f.vezife}`,
       f.emekdas && emekdaslar[0] && `əməkdaş: ${emekdaslar[0].ad} ${emekdaslar[0].soyad}`].filter(Boolean).join(', ');
