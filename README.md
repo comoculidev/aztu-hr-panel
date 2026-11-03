@@ -32,7 +32,20 @@ Dizayn və API razılaşması: [docs/dizayn.md](docs/dizayn.md).
 - Gün içində çıxıb qayıtma (məs. 14:00 çıxıb 15:00 qayıdıb) iş çıxışı sayılmır — **işdə olmama** vaxtıdır.
 - **İşdə olma** = (çıxış − gəliş) − işdə olmama.
 - Kamera keçidi görməyibsə (giriş və ya çıxış yoxdur), sətirdə qeyd yazılır və əməkdaşın əleyhinə təxmin edilmir.
-- Gecikmə və erkən çıxış iş qrafikinə görədir (`IS_BASLAMA`, `IS_BITME`, standart 09:00–18:00, B.e.–Cümə).
+- Gecikmə və erkən çıxış **əməkdaşın öz iş qrafikinə** görədir (aşağıya bax); qrafiki təyin olunmayan əməkdaş üçün
+  `.env`-dəki `IS_BASLAMA`, `IS_BITME` (standart 09:00–18:00). İş günləri B.e.–Cümə.
+
+## İş qrafiki və kadr siyahısı
+- Menyuda **İş qrafiki**: şablonlar (Tam 1 ştat 09:00–17:30, 0,75 ştat 09:00–16:00, 0,5 ştat 09:00–13:00, 0,25 ştat
+  09:00–11:00, Qısaldılmış 09:00–16:30, Natamam 09:00–13:00). Şablonun saatı dəyişəndə seçilən tarixdən bütün
+  əməkdaşlarına tətbiq olunur.
+- **Kadr siyahısı yüklə** (Əməkdaşlar və ya İş qrafiki səhifəsində): kadr şöbəsinin Excel-i. Adlar kamera bazası ilə
+  tutuşdurulur (ə = a = e), hər əməkdaşa "Əsas" iş yerinin ştatı/iş vaxtına görə şablon təyin olunur. Nəticə: tapıldı,
+  ehtimal (1 hərf fərq — "Təsdiqlə"), çoxmənalı (adaşlar — seçib təsdiqlə), sistemdə yoxdur (Excel kimi endirilir).
+  Pin kod (FİN), təvəllüd, cins oxunmur və saxlanmır.
+- Əməkdaş kartında **İş qrafiki → Dəyiş**: şablon və ya fərdi saat, qüvvəyə minmə tarixi ilə. Əl ilə qoyulan qrafik
+  Excel yenidən yüklənəndə dəyişmir.
+- Bütün dəyişikliklər tarixlə qüvvəyə minir: keçmiş günlər həmişə o günkü qrafiklə hesablanır, köhnə hesabatlar dəyişmir.
 - Hadisəsi olmayan iş günü "gəlməyib" sayılır (bayramlar v1-də nəzərə alınmır).
 
 ## Quraşdırma (server 192.0.2.50)

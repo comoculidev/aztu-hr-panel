@@ -1,4 +1,4 @@
-// AzTU HR paneli — brauzer tərəfi (çərçivəsiz). Səhifələr: #/umumi, #/emekdaslar, #/emekdas/<id>, #/hesabat.
+// AzTU HR paneli — brauzer tərəfi (çərçivəsiz). Səhifələr: #/umumi, #/emekdaslar, #/emekdas/<id>, #/hesabat, #/qrafikler.
 // Təhlükəsizlik: serverdən gələn hər mətn esc() ilə və ya textContent ilə yazılır. CSP daxili style atributunu
 // qadağan edir — mövqe/en dəyərləri data-x / data-w atributlarından JS ilə (el.style) qoyulur.
 
@@ -238,8 +238,9 @@ function gunXetti(s, { kicik = false, indi = null, aBas = 6, aSon = 22 } = {}) {
   }
   const x = (t) => Math.max(0, Math.min(100, ((t - A) / (B - A)) * 100)).toFixed(2);
   const w = (a, b) => Math.max(0.4, ((b - a) / (B - A)) * 100).toFixed(2);
-  const [pb, ps] = [sn(`${MEN.isBaslama}:00`), sn(`${MEN.isBitme}:00`)];
-  let ic = `<div class="plan" data-x="${x(pb)}" data-w="${w(pb, ps)}" title="İş qrafiki ${MEN.isBaslama}–${MEN.isBitme}"></div>`;
+  const q = s.qrafik ?? { baslama: MEN.isBaslama, bitme: MEN.isBitme };      // əməkdaşın həmin günkü qrafiki
+  const [pb, ps] = [sn(`${q.baslama}:00`), sn(`${q.bitme}:00`)];
+  let ic = `<div class="plan" data-x="${x(pb)}" data-w="${w(pb, ps)}" title="İş qrafiki ${esc(q.baslama)}–${esc(q.bitme)}"></div>`;
   if (p) {
     for (const [a, b] of p.ic) {
       ic += `<div class="ic${p.natamam ? ' natamam' : ''}" data-x="${x(a)}" data-w="${w(a, b)}" title="Binada: ${saatQisa(saatYaz(a))}–${saatQisa(saatYaz(b))} (${muddetSoz(b - a)})"></div>`;
@@ -561,7 +562,7 @@ const STATUSLAR = [
 async function emekdaslarSehife() {
   sehife.innerHTML = `
     <div class="sehife-bas"><div><h1>Əməkdaşlar</h1><p id="e-alt">&nbsp;</p></div>
-      <div class="sag"><span class="yenilenib" id="yenilenib"></span></div></div>
+      <div class="sag"><span class="yenilenib" id="yenilenib"></span><button class="dugme" type="button" id="e-kadr">Kadr siyahısı yüklə</button></div></div>
     <div class="filtr-setri">
       <label class="sahe">${IKON.axtar}<input type="search" id="e-q" placeholder="Ad, soyad, ata adı, şöbə, vəzifə…" value="${esc(E.q)}" aria-label="Axtarış"></label>
       <select id="e-sobe" aria-label="Şöbə"><option value="">Bütün şöbələr</option></select>
@@ -570,6 +571,7 @@ async function emekdaslarSehife() {
     <div class="filtr-setri" id="e-status"></div>
     <section class="kart"><div class="cedvel-qab cerceve" id="e-siyahi"><div class="yuklenir">Yüklənir…</div></div>
       <div id="e-sehifeleme"></div></section>`;
+  $('#e-kadr').addEventListener('click', kadrPencere);
   const q = $('#e-q');
   // süzgəc dəyişəndə birinci səhifədən: köhnə səhifə nömrəsi yeni (qısa) siyahıda boş səhifə göstərməsin
   q.addEventListener('input', debounce(() => { E.q = q.value; E.sehife = 0; emekdaslarYukle(); }));
@@ -621,10 +623,10 @@ function emekdaslarCiz() {
   const gorunen = siyahi.slice(E.sehife * E.olcu, (E.sehife + 1) * E.olcu);
   $('#e-alt').textContent = `${reqem(E.siyahi.length)} əməkdaş${E.q || E.sobe || E.vezife ? ' (süzülmüş)' : ''} · bu gün binada ${reqem(sayi.binada)}`;
   const qab = $('#e-siyahi');
-  qab.innerHTML = siyahi.length ? `<table><thead><tr><th>Əməkdaş</th><th>Şöbə</th><th>Vəzifə</th><th>Bu gün</th></tr></thead>
+  qab.innerHTML = siyahi.length ? `<table><thead><tr><th>Əməkdaş</th><th>Şöbə</th><th>Vəzifə</th><th>Qrafik</th><th>Bu gün</th></tr></thead>
     <tbody>${gorunen.map((e) => `<tr class="klik" data-id="${esc(e.id)}" tabindex="0">
       <td><div class="adam">${avatar(e)}<div><b>${esc(tamAd(e))}</b><span class="alt">${esc(e.ata ? `ata adı: ${e.ata}` : '')}</span></div></div></td>
-      <td>${esc(e.sobe)}</td><td>${esc(e.vezife)}</td><td>${buGunHucre(e)}</td></tr>`).join('')}</tbody></table>`
+      <td>${esc(e.sobe)}</td><td>${esc(e.vezife)}</td><td><span title="${esc(e.qrafik?.ad ?? '')}">${esc(qrafikMetni(e.qrafik))}</span></td><td>${buGunHucre(e)}</td></tr>`).join('')}</tbody></table>`
     : `<div class="bos">${E.q ? `<b>"${esc(E.q)}" üzrə əməkdaş tapılmadı</b>Yazılışı yoxlayın: "Eli" = "Əli", "huseyn" = "Hüseyn".`
       : E.siyahi.length ? '<b>Bu vəziyyətdə əməkdaş yoxdur</b>' : '<b>Əməkdaş yoxdur</b>Kamera sistemi əməkdaş siyahısını göndərəndən sonra burada görünəcək.'}</div>`;
   sehifelemeQur($('#e-sehifeleme'), siyahi.length, E, () => {
@@ -646,7 +648,7 @@ function gunCedveli(setirler, { xett = true } = {}) {
   return `<table><thead><tr><th>Tarix</th><th class="r">Gəliş</th><th class="r">Çıxış</th>${xett ? '<th>Günün xətti</th>' : ''}
     <th class="r">İşdə olma</th><th>Kənarda olma</th><th>Qeyd</th></tr></thead>
     <tbody>${setirler.map((s) => {
-    const tarix = `<td class="t"><b>${tarixYaz(s.tarix)}</b> <span class="alt">${hefteQisa(s.tarix)}</span></td>`;
+    const tarix = `<td class="t"><b>${tarixYaz(s.tarix)}</b> <span class="alt">${hefteQisa(s.tarix)}${s.qrafik ? ` · ${esc(qrafikMetni(s.qrafik))}` : ''}</span></td>`;
     if (s.veziyyet === 'gelmeyib') return `<tr>${tarix}<td colspan="${xett ? 6 : 5}"><span class="nisan bad">Gəlməyib</span></td></tr>`;
     if (s.veziyyet === 'istirahet') return `<tr>${tarix}<td colspan="${xett ? 6 : 5}"><span class="nisan boz">İstirahət günü</span></td></tr>`;
     const gec = s.gecikmeSan > 0 ? `<div><span class="nisan warn yox">+${muddetSoz(s.gecikmeSan)}</span></div>` : '';
@@ -696,7 +698,7 @@ async function emekdasSehife(id) {
         <div><div class="etiket">İşdə olma</div><div class="deyer">${muddetSoz(b.isdeSan)}</div></div>
         <div><div class="etiket">Kənarda olma</div><div class="deyer">${b.gelis ? muddetSoz(b.olmamaSan) : '—'}
           ${b.bosluqlar.length ? `<small>${b.bosluqlar.length} dəfə</small>` : ''}</div></div>
-        <div><div class="etiket">İş qrafiki</div><div class="deyer">${esc(MEN.isBaslama)}–${esc(MEN.isBitme)}</div></div>
+        <div><div class="etiket">İş qrafiki</div><div class="deyer">${esc(qrafikMetni(b.qrafik))}</div></div>
       </div>
     </section>
     <br>
@@ -715,6 +717,11 @@ async function emekdasSehife(id) {
     : `<div class="bos">${b.gelis ? '<b>Gün ərzində binadan çıxmayıb</b>' : 'Bu gün keçid yoxdur.'}</div>`}
       </section>
     </div>
+    <section class="kart">
+      <div class="kart-bas"><h2>İş qrafiki</h2></div>
+      <div class="kart-ici" id="q-blok"><div class="yuklenir">Yüklənir…</div></div>
+    </section>
+    <br>
     <section class="kart">
       <div class="kart-bas"><h2>Bu günün keçidləri</h2><span class="alt-metn">${b.hadiseler.length} keçid</span></div>
       ${b.hadiseler.length ? `<ul class="kecidler">${b.hadiseler.map((h) => `<li><span class="saat">${esc(h.saat)}</span>${yon(h.istiqamet)}<span class="cip">${esc(h.kamera)}</span></li>`).join('')}</ul>`
@@ -744,6 +751,7 @@ async function emekdasSehife(id) {
       qab.classList.remove('gozle');
     }
   };
+  qrafikBlokuYukle(id);
   muddetQur($('#t-muddet'), T.m, ['son7', 'buay', 'kecenay', 'araliq'], yukle);
   $('#t-excel').addEventListener('click', (ev) => excelEndir(new URLSearchParams({ bas: T.m.bas, son: T.m.son, emekdas: id }), ev.currentTarget));
   await yukle();
@@ -1097,6 +1105,207 @@ function uzAc(h) {
   d.showModal();
 }
 
+// ================================================================ 5. İŞ QRAFİKİ (şablonlar, əməkdaşın qrafiki, kadr Excel-i)
+const qrafikMetni = (q) => (q ? `${q.baslama}–${q.bitme}` : '—');
+const MENBE = { el: 'əl ilə', excel: 'kadr Excel-i' };
+
+/** Ümumi pəncərə (dialog): html qoyulur, [data-bagla] düymələri və Escape bağlayır; dialogun özünü qaytarır */
+function pencere(html, { genis = false } = {}) {
+  let d = $('#q-pencere');
+  if (!d) {
+    d = Object.assign(document.createElement('dialog'), { id: 'q-pencere' });
+    document.body.append(d);
+  }
+  d.className = `uz-pencere forma-pencere${genis ? ' genis' : ''}`;
+  d.innerHTML = `<div class="ici">${html}</div>`;
+  for (const b of $$('[data-bagla]', d)) b.addEventListener('click', () => d.close());
+  if (!d.open) d.showModal();
+  return d;
+}
+
+const pencereBas = (bas) => `<div class="bas"><b>${esc(bas)}</b><button class="ikon-d" type="button" data-bagla aria-label="Bağla">${IKON_SIL}</button></div>`;
+
+/** Düyməni gözləmə vəziyyətinə salıb f-i işlədir; xətanı pəncərədəki .xeta-yer-də göstərir */
+async function gozleIsle(dugme, f) {
+  const kohne = dugme.innerHTML;
+  dugme.disabled = true;
+  dugme.textContent = 'Gözləyin…';
+  const yer = dugme.closest('dialog')?.querySelector('.xeta-yer');
+  if (yer) yer.innerHTML = '';
+  try {
+    await f();
+  } catch (e) {
+    if (yer) yer.innerHTML = xetaHtml(e); else alert(e.message);
+  } finally {
+    if (dugme.isConnected) { dugme.disabled = false; dugme.innerHTML = kohne; }
+  }
+}
+
+const postJson = (yol, govde) => api(yol, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(govde) });
+
+// ---------------------------------------------------------------- şablonlar səhifəsi
+async function qrafiklerSehife() {
+  sehife.innerHTML = `
+    <div class="sehife-bas"><div><h1>İş qrafiki</h1><p>Şablonun saatı dəyişəndə şablondakı bütün əməkdaşlara seçilən tarixdən tətbiq olunur — keçmiş günlər köhnə saatla qalır.</p></div>
+      <div class="sag"><button class="dugme esasli" type="button" id="q-kadr">Kadr siyahısı yüklə</button></div></div>
+    <section class="kart"><div class="cedvel-qab cerceve" id="q-cedvel"><div class="yuklenir">Yüklənir…</div></div></section>`;
+  $('#q-kadr').addEventListener('click', kadrPencere);
+  const qab = $('#q-cedvel');
+  try {
+    const s = await api('/api/qrafik/sablonlar');
+    if (!qab.isConnected) return;
+    qab.innerHTML = `<table><thead><tr><th>Şablon</th><th class="r">Bu gün</th><th class="r">Əməkdaş</th><th>Son dəyişiklik</th><th></th></tr></thead>
+      <tbody>${s.map((x) => `<tr><td><b>${esc(x.ad)}</b></td><td class="r"><b>${esc(qrafikMetni(x))}</b></td>
+        <td class="r">${reqem(x.emekdasSayi)}</td>
+        <td><span class="alt-metn">${x.saatlar[0].kim === 'sistem' ? 'ilkin' : `${tarixYaz(x.saatlar[0].bas)}-dən · ${esc(x.saatlar[0].kim)}`}</span></td>
+        <td class="r"><button class="dugme" type="button" data-sablon="${x.id}">Saatı dəyiş</button></td></tr>`).join('')}</tbody></table>`;
+    for (const b of $$('[data-sablon]', qab)) b.addEventListener('click', () => sablonPencere(s.find((x) => String(x.id) === b.dataset.sablon)));
+  } catch (e) {
+    qab.innerHTML = xetaHtml(e);
+  }
+}
+
+function sablonPencere(s) {
+  const d = pencere(`${pencereBas(s.ad)}
+    <div class="forma">
+      <label>Qüvvəyə minir<input type="date" id="sp-bas" value="${MEN.bugun}" required></label>
+      <label>Başlama<input type="time" id="sp-baslama" value="${esc(s.baslama)}" required></label>
+      <label>Bitmə<input type="time" id="sp-bitme" value="${esc(s.bitme)}" required></label>
+    </div>
+    <div class="alt-metn">Bu şablondakı ${reqem(s.emekdasSayi)} əməkdaşa təsir edir. Seçilən tarixdən əvvəlki günlər köhnə saatla hesablanır.</div>
+    <div class="xeta-yer"></div>
+    <div class="dugmeler"><button class="dugme" type="button" data-bagla>Ləğv et</button><button class="dugme esasli" type="button" id="sp-yaz">Yadda saxla</button></div>
+    <details><summary>Saat tarixçəsi (${s.saatlar.length})</summary><ul class="tarixce">${s.saatlar.map((x) => `<li><b>${x.kim === 'sistem' ? 'ilkin' : `${tarixYaz(x.bas)}-dən`}</b> ${esc(x.baslama)}–${esc(x.bitme)} <span class="alt-metn">${esc(x.kim)}</span></li>`).join('')}</ul></details>`);
+  $('#sp-yaz', d).addEventListener('click', (ev) => gozleIsle(ev.currentTarget, async () => {
+    await postJson(`/api/qrafik/sablonlar/${s.id}/saat`, { bas: $('#sp-bas', d).value, baslama: $('#sp-baslama', d).value, bitme: $('#sp-bitme', d).value });
+    d.close();
+    qrafiklerSehife();
+  }));
+}
+
+// ---------------------------------------------------------------- əməkdaş kartında "İş qrafiki"
+async function qrafikBlokuYukle(id) {
+  const qab = $('#q-blok');
+  if (!qab) return;
+  try {
+    const q = await api(`/api/emekdaslar/${encodeURIComponent(id)}/qrafik`);
+    if (!qab.isConnected) return;
+    const i = q.indiki;
+    const kadr = q.kadr.length ? `<table><thead><tr><th>Müəssisə</th><th>Vəzifə</th><th>Tip</th><th class="r">Ştat</th><th>İş vaxtı</th></tr></thead>
+      <tbody>${q.kadr.map((k) => `<tr><td>${esc(k.muessise)}</td><td>${esc(k.vezife)}</td><td>${esc(k.tip)}${k.sira === 0 ? ' <span class="nisan ok yox">qrafik buna görə</span>' : ''}</td>
+        <td class="r">${esc(k.stat ?? '')}</td><td>${esc(k.is_vaxti)}</td></tr>`).join('')}</tbody></table>`
+      : '<div class="alt-metn">Kadr siyahısında tapılmayıb (və ya siyahı hələ yüklənməyib).</div>';
+    qab.innerHTML = `
+      <div class="qrafik-indi"><div><div class="etiket">İndiki qrafik</div><div class="deyer">${esc(qrafikMetni(i))}</div>
+        <div class="alt-metn">${esc(i.ad)}${i.bas ? ` · ${tarixYaz(i.bas)}-dən` : ''}${i.menbe ? ` · ${MENBE[i.menbe] ?? esc(i.menbe)}` : ''}</div></div>
+        <button class="dugme" type="button" id="q-deyis">Dəyiş</button></div>
+      <h3>Kadr məlumatı</h3><div class="cedvel-qab">${kadr}</div>
+      ${q.tarixce.length ? `<h3>Dəyişikliklər</h3><div class="cedvel-qab"><table><thead><tr><th>Tarixdən</th><th>Qrafik</th><th>Mənbə</th><th>Kim</th></tr></thead>
+        <tbody>${q.tarixce.map((x) => `<tr><td>${tarixYaz(x.bas)}</td><td><b>${esc(qrafikMetni(x))}</b> <span class="alt-metn">${esc(x.ad)}</span></td>
+          <td>${MENBE[x.menbe] ?? esc(x.menbe)}</td><td>${esc(x.kim)}</td></tr>`).join('')}</tbody></table></div>` : ''}`;
+    $('#q-deyis').addEventListener('click', () => qrafikDeyisPencere(id, i));
+  } catch (e) {
+    qab.innerHTML = xetaHtml(e);
+  }
+}
+
+async function qrafikDeyisPencere(id, indi) {
+  const sablonlar = await api('/api/qrafik/sablonlar').catch((e) => { alert(e.message); return null; });
+  if (!sablonlar) return;
+  const ferdi = !indi.sablonId && indi.menbe;
+  const d = pencere(`${pencereBas('İş qrafikini dəyiş')}
+    <div class="forma">
+      <label>Qüvvəyə minir<input type="date" id="qd-bas" value="${MEN.bugun}" required></label>
+      <label>Qrafik<select id="qd-sablon">${sablonlar.map((s) => `<option value="${s.id}"${s.id === indi.sablonId ? ' selected' : ''}>${esc(s.ad)} (${esc(qrafikMetni(s))})</option>`).join('')}
+        <option value=""${ferdi ? ' selected' : ''}>Fərdi saat</option></select></label>
+      <label class="ferdi">Başlama<input type="time" id="qd-baslama" value="${esc(indi.baslama)}"></label>
+      <label class="ferdi">Bitmə<input type="time" id="qd-bitme" value="${esc(indi.bitme)}"></label>
+    </div>
+    <div class="alt-metn">Seçilən tarixdən əvvəlki günlər köhnə qrafiklə hesablanır. Əl ilə dəyişilən qrafik kadr Excel-i yenidən yüklənəndə dəyişmir.</div>
+    <div class="xeta-yer"></div>
+    <div class="dugmeler"><button class="dugme" type="button" data-bagla>Ləğv et</button><button class="dugme esasli" type="button" id="qd-yaz">Yadda saxla</button></div>`);
+  const sec = $('#qd-sablon', d);
+  const goster = () => { for (const l of $$('.ferdi', d)) l.hidden = sec.value !== ''; };
+  sec.addEventListener('change', goster);
+  goster();
+  $('#qd-yaz', d).addEventListener('click', (ev) => gozleIsle(ev.currentTarget, async () => {
+    const bas = $('#qd-bas', d).value;
+    await postJson(`/api/emekdaslar/${encodeURIComponent(id)}/qrafik`, sec.value
+      ? { bas, sablon_id: Number(sec.value) } : { bas, baslama: $('#qd-baslama', d).value, bitme: $('#qd-bitme', d).value });
+    d.close();
+    emekdasSehife(id);
+  }));
+}
+
+// ---------------------------------------------------------------- kadr siyahısı (Excel) yükləmə
+const sexsAdi = (s) => `${s.soyad} ${s.ad}${s.ata ? ` ${s.ata}` : ''}`;
+const sexsIzah = (s) => {
+  const e = s.setirler[0];
+  return [e.muessise, e.vezife, s.setirler.map((x) => `${x.tip} ${x.stat ?? ''}`.trim()).join(' + ')].filter(Boolean).join(' · ');
+};
+const namizedAdi = (c) => `${c.soyad} ${c.ad}${c.vezife ? ` — ${c.vezife}` : ''}${c.sobe ? `, ${c.sobe}` : ''}`;
+
+function kadrPencere() {
+  const d = pencere(`${pencereBas('Kadr siyahısı yüklə')}
+    <div class="alt-metn">Kadr şöbəsinin Excel faylı (.xlsx). Lazım olan sütunlar: Adı, Soyadı, Atasının adı, İşçilərin tipi,
+      Ştat vahidi, İş vaxtı. Pin kod, təvəllüd və başqa şəxsi sütunlar oxunmur.</div>
+    <div class="forma">
+      <label class="uzun">Fayl<input type="file" id="kd-fayl" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"></label>
+      <label>Qüvvəyə minir<input type="date" id="kd-bas" value="${MEN.bugun}"></label>
+    </div>
+    <div class="xeta-yer"></div>
+    <div class="dugmeler"><button class="dugme" type="button" data-bagla>Bağla</button><button class="dugme esasli" type="button" id="kd-yukle">Yüklə</button></div>
+    <div id="kd-netice"></div>`, { genis: true });
+  $('#kd-yukle', d).addEventListener('click', (ev) => gozleIsle(ev.currentTarget, async () => {
+    const fayl = $('#kd-fayl', d).files[0];
+    if (!fayl) throw new Error('Fayl seçin');
+    const bas = $('#kd-bas', d).value;
+    const n = await api(`/api/kadr/yukle?bas=${encodeURIComponent(bas)}`, { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: fayl });
+    kadrNeticeCiz($('#kd-netice', d), n);
+  }));
+}
+
+function kadrNeticeCiz(qab, n) {
+  const gosterici = [['Excel-də şəxs', n.cemi], ['Tapıldı', n.tapildi], ['Qrafik yazıldı', n.yazildi], ['Dəyişməyib', n.deyismedi],
+    ['Əl ilə qorundu', n.qorundu], ['Ehtimal', n.ehtimal.length], ['Çoxmənalı', n.coxmenali.length], ['Sistemdə yoxdur', n.yoxdur.length]]
+    .concat(n.isdenCixib ? [['İşdən çıxıb', n.isdenCixib]] : []);
+  const secimSetri = (x, i, nov) => `<tr data-nov="${nov}" data-i="${i}"><td><b>${esc(sexsAdi(x.sexs))}</b><span class="alt">${esc(sexsIzah(x.sexs))}</span></td>
+    <td><select aria-label="Sistemdəki əməkdaş">${x.namizedler.map((c) => `<option value="${esc(c.id)}">${esc(namizedAdi(c))}</option>`).join('')}</select></td>
+    <td class="r"><button class="dugme" type="button" data-tesdiq>Təsdiqlə</button></td></tr>`;
+  const ehtimal = n.ehtimal.map((x, i) => secimSetri(x, i, 'ehtimal')).join('');
+  const coxmenali = n.coxmenali.map((x, i) => secimSetri(x, i, 'coxmenali')).join('');
+  qab.innerHTML = `
+    <div class="gosterici-setri">${gosterici.map(([a, v]) => `<div class="gosterici"><div class="etiket">${a}</div><div class="reqem">${reqem(v)}</div></div>`).join('')}</div>
+    ${n.xeberdarliqlar.length ? `<div class="qeyd-qutu">${n.xeberdarliqlar.slice(0, 20).map(esc).join('<br>')}</div>` : ''}
+    ${ehtimal ? `<h3>Ehtimal — adın yazılışı 1 hərf fərqlidir</h3><p class="alt-metn">Eyni adamdırsa "Təsdiqlə" basın — qrafik Excel-ə görə təyin olunur.</p>
+      <div class="cedvel-qab"><table><tbody>${ehtimal}</tbody></table></div>` : ''}
+    ${coxmenali ? `<h3>Çoxmənalı — eyni adlı bir neçə əməkdaş</h3><p class="alt-metn">Siyahıdan doğru əməkdaşı seçib təsdiqləyin.</p>
+      <div class="cedvel-qab"><table><tbody>${coxmenali}</tbody></table></div>` : ''}
+    ${n.yoxdur.length ? `<div class="kart-bas"><h3>Sistemdə yoxdur (${reqem(n.yoxdur.length)})</h3>
+        <button class="dugme excel" type="button" id="kd-excel">${IKON.excel}Excel endir</button></div>
+      <p class="alt-metn">Kamera bazasında şəkli olmayanlar: şəkilləri bazaya əlavə ediləndə avtomatik gələcəklər.</p>
+      <div class="cedvel-qab"><table><tbody>${n.yoxdur.slice(0, 100).map((s) => `<tr><td><b>${esc(sexsAdi(s))}</b><span class="alt">${esc(sexsIzah(s))}</span></td></tr>`).join('')}
+        ${n.yoxdur.length > 100 ? `<tr><td class="alt-metn">… və daha ${reqem(n.yoxdur.length - 100)} nəfər (Excel-də hamısı)</td></tr>` : ''}</tbody></table></div>` : ''}`;
+  for (const b of $$('[data-tesdiq]', qab)) {
+    b.addEventListener('click', () => gozleIsle(b, async () => {
+      const tr = b.closest('tr');
+      const x = n[tr.dataset.nov][Number(tr.dataset.i)];
+      const r = await postJson('/api/kadr/tesdiq', { bas: n.bas, emekdas_id: $('select', tr).value, setirler: x.sexs.setirler });
+      tr.innerHTML = `<td colspan="3"><span class="nisan ok">Təsdiqləndi</span> ${esc(sexsAdi(x.sexs))}${r.netice === 'qorundu' ? ' <span class="alt-metn">(əl ilə qoyulmuş qrafik qorundu)</span>' : ''}</td>`;
+    }));
+  }
+  $('#kd-excel', qab)?.addEventListener('click', (ev) => gozleIsle(ev.currentTarget, async () => {
+    const c = await fetch('/api/kadr/excel', { method: 'POST', headers: { 'X-Aztu': '1', 'Content-Type': 'application/json' }, body: JSON.stringify({ setirler: n.yoxdur }) });
+    if (!c.ok) throw new Error((await c.json().catch(() => ({}))).xeta || 'Excel hazırlanmadı');
+    const url = URL.createObjectURL(await c.blob());
+    const a = Object.assign(document.createElement('a'), { href: url, download: `sistemde_olmayan_${n.bas}.xlsx` });
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  }));
+}
+
 // ================================================================ yönləndirmə
 async function yonlendir() {
   clearInterval(taymer);
@@ -1114,6 +1323,7 @@ async function yonlendir() {
   if (yol === 'emekdas' && param) return emekdasSehife(decodeURIComponent(param));
   if (yol === 'hesabat') return hesabatSehife();
   if (yol === 'hadiseler') return hadiselerSehife();
+  if (yol === 'qrafikler') return qrafiklerSehife();
   if (location.hash && location.hash !== '#/umumi') history.replaceState(null, '', '#/umumi');
   return umumiSehife();
 }

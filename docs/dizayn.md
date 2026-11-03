@@ -115,8 +115,15 @@ Panel "Kamera sistemi: onlayn / son siqnal N dəq əvvəl" göstərir.
 4. **Çıxış** = gəlişdən sonrakı son çıxış. Yoxdursa — "çıxış qeydə alınmayıb", son görünmə göstərilir; bu gündürsə
    "binadadır".
 5. **İşdə olma** = (çıxış − gəliş) − işdə olmama. Son çıxışdan sonrakı vaxt (evə gediş) boşluq deyil.
-6. Əlavə (iş qrafiki, `.env`: `IS_BASLAMA=09:00`, `IS_BITME=18:00`): gecikmə = gəliş − başlama, erkən çıxış =
-   bitmə − çıxış (müsbətdirsə). Hesabatda sütun kimi.
+6. Əlavə (əməkdaşın həmin günkü iş qrafiki — `src/qrafik.js`; təyin olunmayıbsa `.env`: `IS_BASLAMA`, `IS_BITME`):
+   gecikmə = gəliş − başlama, erkən çıxış = bitmə − çıxış (müsbətdirsə). Hesabatda sütun kimi.
+
+## İş qrafiki (03.11.2026)
+Ətraflı: `docs/superpowers/specs/2026-11-03-is-qrafiki-design.md`. Cədvəllər: `qrafik_sablonlari` (6 şablon),
+`sablon_saatlari` (şablon saatının tarixçəsi), `emekdas_qrafik` (əməkdaşa təyinat: şablon və ya fərdi saat, mənbə
+`excel` | `el`), `kadr_melumati` (kadr Excel-indən: müəssisə, vəzifə, tip, ştat, iş vaxtı — FİN yox). Günün qrafiki:
+həmin tarixə qədər qüvvəyə minmiş son təyinat → şablondursa şablonun həmin tarixdəki saatı. API: `/api/qrafik/*`,
+`/api/emekdaslar/:id/qrafik`, `/api/kadr/*` (`src/qrafikApi.js`).
 
 ## Mənim qərarlarım (istifadəçi sual vermədən başlamağı seçdi)
 - API (REST/JSON) + yerli növbə; serverdə SQLite (30 kamera üçün kifayətdir, sonra PostgreSQL-ə keçid asandır).
