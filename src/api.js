@@ -7,6 +7,7 @@ import { isGunudur } from './davamiyyet.js';
 import { AZ, SorguXetasi, araliq, emekdasSec, gunSetri, hesabatQur, qrafikQisa } from './hesabat.js';
 import { ipNormal } from './ingest.js';
 import { qrafikTap, qrafikXeritesi } from './qrafik.js';
+import { qrafikRouter } from './qrafikApi.js';
 
 export const KUKI = 'aztu_hr';
 const KATEQORIYA = new Set(['emekdas', 'telebe', 'taninmayan', 'diger']);
@@ -17,7 +18,10 @@ const str = (v, maks = 200) => (typeof v === 'string' ? v.trim().slice(0, maks) 
 
 export function apiRouter(db, k, log = console) {
   const r = express.Router();
-  r.use(express.json({ limit: '50kb' }));
+  // kadr siyahısının cavabları (yüzlərlə sətir) brauzerdən geri göndərilir — onlara daha böyük hədd
+  const json = express.json({ limit: '50kb' });
+  const jsonBoyuk = express.json({ limit: '2mb' });
+  r.use((req, res, next) => (req.path.startsWith('/kadr/') ? jsonBoyuk : json)(req, res, next));
   const limit = new GirisLimiti();
 
   const kuki = (token, maxYas) => [`${KUKI}=${token}`, 'Path=/', 'HttpOnly', 'SameSite=Strict', `Max-Age=${maxYas}`,
@@ -258,7 +262,10 @@ export function apiRouter(db, k, log = console) {
     }).send(Buffer.from(buf));
   }));
 
+  r.use(qrafikRouter(db, k, log));
+
   r.use((err, req, res, next) => {
+    if (err?.type === 'entity.too.large') return res.status(413).json({ xeta: 'Fayl çox böyükdür' });
     if (err instanceof SorguXetasi) return res.status(400).json({ xeta: err.message });
     if (err?.type === 'entity.parse.failed') return res.status(400).json({ xeta: 'JSON pozuqdur' });
     log.error(err);

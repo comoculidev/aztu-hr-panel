@@ -258,3 +258,94 @@ test('tanınmayanların üzü: qəbul, süzgəc (qapı, tarix, saat), şəkil, 3
   assert.equal(db.prepare("SELECT sekil FROM hadiseler WHERE id = 'kohne'").get().sekil, null);
   assert.equal((await sorgu('/api/taninmayanlar?saatBas=25:00', { kuki })).status, 400);
 });
+
+// ---------------------------------------------------------------- iş qrafiki və kadr yükləmə
+const yaz = (yol, govde, kuki, metod = 'POST') => sorgu(yol, { metod, govde, kuki, basliq: { 'X-Aztu': '1' } });
+
+test('qrafik: şablonlar, saat dəyişikliyi tarixlə, əməkdaşa fərdi saat', async () => {
+  const kuki = await giris();
+  const t = buGun();
+  try {
+    let s = (await sorgu('/api/qrafik/sablonlar', { kuki })).json;
+    assert.equal(s.length, 6);
+    const tam = s.find((x) => x.acar === 'tam_1');
+    assert.deepEqual([tam.baslama, tam.bitme, tam.saatlar.length], ['09:00', '17:30', 1]);
+    assert.equal((await yaz(`/api/qrafik/sablonlar/${tam.id}/saat`, { bas: t, baslama: '08:30', bitme: '17:00' }, kuki)).status, 200);
+    s = (await sorgu('/api/qrafik/sablonlar', { kuki })).json;
+    const tam2 = s.find((x) => x.acar === 'tam_1');
+    assert.deepEqual([tam2.baslama, tam2.saatlar.length], ['08:30', 2]);
+
+    const yol = `/api/emekdaslar/${encodeURIComponent(ALI)}/qrafik`;
+    assert.equal((await yaz(yol, { bas: t, sablon_id: tam.id }, kuki)).status, 200);
+    assert.equal((await sorgu('/api/qrafik/sablonlar', { kuki })).json.find((x) => x.acar === 'tam_1').emekdasSayi, 1);
+    assert.equal((await yaz(yol, { bas: t, baslama: '10:00', bitme: '15:00' }, kuki)).status, 200);
+    const q = (await sorgu(yol, { kuki })).json;
+    assert.deepEqual([q.indiki.ad, q.indiki.menbe, q.indiki.baslama, q.tarixce.length], ['Fərdi', 'el', '10:00', 1]);
+    assert.equal(q.tarixce[0].kim, 'hr.sinaq');
+  } finally {
+    db.prepare('DELETE FROM emekdas_qrafik').run();
+    db.prepare("DELETE FROM sablon_saatlari WHERE kim <> 'sistem'").run();
+  }
+});
+
+test('qrafik: yoxlama xətaları 400, tapılmayan əməkdaş 404, CSRF başlığı olmadan 403', async () => {
+  const kuki = await giris();
+  const yol = `/api/emekdaslar/${encodeURIComponent(ALI)}/qrafik`;
+  for (const g of [{ bas: '2026-11-03', baslama: '17:00', bitme: '09:00' }, { bas: '2026-11-03', baslama: '25:00', bitme: '26:00' },
+    { bas: '2026-02-30', baslama: '09:00', bitme: '17:00' }, { bas: '2026-11-03', sablon_id: 9999 }, { bas: '2026-11-03' }]) {
+    assert.equal((await yaz(yol, g, kuki)).status, 400, JSON.stringify(g));
+  }
+  assert.equal((await yaz('/api/emekdaslar/yoxdur/qrafik', { bas: '2026-11-03', sablon_id: 1 }, kuki)).status, 404);
+  assert.equal((await yaz('/api/qrafik/sablonlar/9999/saat', { bas: '2026-11-03', baslama: '09:00', bitme: '17:00' }, kuki)).status, 404);
+  assert.equal((await sorgu(yol, { metod: 'POST', govde: { bas: '2026-11-03', sablon_id: 1 }, kuki })).status, 403);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM emekdas_qrafik').get().n, 0);
+});
+
+test('kadr yükləmə: nəticə, təsdiq, tapılmayanların Excel-i', async () => {
+  const kuki = await giris();
+  db.prepare(`INSERT INTO emekdaslar (id, ad, soyad, sobe, vezife, axtaris, yaradilib, yenilenib)
+    VALUES ('samir', 'Samir', 'Quliyev', 'Fizika', 'Laborant', '', '2026-01-01', '2026-01-01')`).run();
+  try {
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Person');
+    ws.addRow(['Pin kod', 'Adı', 'Soyadı', 'Atasının adı', 'Vəzifəsi', 'İşçilərin tipi', 'Ştat vahidi', 'İş vaxtı']);
+    ws.addRow(['ZZZ9999', 'Əli', 'Vəliyev', 'Rasim', 'Dosent', 'Əsas', '1', 'Tam']);
+    ws.addRow(['ZZZ8888', 'Samir', 'Quluyev', '', 'Laborant', 'Əsas', '0.50', 'Tam']);
+    ws.addRow(['ZZZ7777', 'Nərgiz', 'Abbasova', '', 'Kargüzar', 'Əsas', '1', 'Tam']);
+    const c = await fetch(`${url}/api/kadr/yukle?bas=${buGun()}`, { method: 'POST',
+      headers: { Cookie: kuki, 'X-Aztu': '1', 'Content-Type': 'application/octet-stream' }, body: Buffer.from(await wb.xlsx.writeBuffer()) });
+    const metn = await c.text();
+    assert.equal(c.status, 200, metn);
+    assert.ok(!metn.includes('ZZZ'));
+    const n = JSON.parse(metn);
+    assert.deepEqual([n.cemi, n.tapildi, n.yazildi, n.ehtimal.length, n.yoxdur.length], [3, 1, 1, 1, 1]);
+    assert.deepEqual(n.ehtimal[0].namizedler.map((x) => x.id), ['samir']);
+
+    const t = await yaz('/api/kadr/tesdiq', { bas: buGun(), emekdas_id: 'samir', setirler: n.ehtimal[0].sexs.setirler }, kuki);
+    assert.equal(t.status, 200);
+    const q = (await sorgu('/api/emekdaslar/samir/qrafik', { kuki })).json;
+    assert.deepEqual([q.indiki.ad, q.indiki.menbe, q.kadr[0].stat], ['Tam, 0,5 ştat', 'excel', 0.5]);
+
+    const x = await fetch(`${url}/api/kadr/excel`, { method: 'POST',
+      headers: { Cookie: kuki, 'X-Aztu': '1', 'Content-Type': 'application/json' }, body: JSON.stringify({ setirler: n.yoxdur }) });
+    assert.equal(x.status, 200);
+    assert.match(x.headers.get('content-type'), /spreadsheetml/);
+    const wb2 = new ExcelJS.Workbook();
+    await wb2.xlsx.load(Buffer.from(await x.arrayBuffer()));
+    assert.equal(wb2.worksheets[0].rowCount, 2);
+    assert.equal(wb2.worksheets[0].getRow(2).getCell(2).value, 'Abbasova');
+  } finally {
+    db.prepare('DELETE FROM emekdas_qrafik').run();
+    db.prepare('DELETE FROM kadr_melumati').run();
+    db.prepare("DELETE FROM emekdaslar WHERE id = 'samir'").run();
+  }
+});
+
+test('kadr yükləmə: Excel olmayan və boş fayl 400', async () => {
+  const kuki = await giris();
+  for (const body of [Buffer.from('bu excel deyil'), Buffer.alloc(0)]) {
+    const c = await fetch(`${url}/api/kadr/yukle`, { method: 'POST',
+      headers: { Cookie: kuki, 'X-Aztu': '1', 'Content-Type': 'application/octet-stream' }, body });
+    assert.equal(c.status, 400);
+  }
+});
