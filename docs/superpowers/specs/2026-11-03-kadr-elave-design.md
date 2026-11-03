@@ -57,7 +57,7 @@ CREATE TABLE IF NOT EXISTS sekil_linkleri (
 - `DELETE /api/emekdaslar/:id` → `silinib = 1, aktiv = 0`, açıq linklər bağlanır. 404 tanınmayan.
 - `POST /api/emekdaslar/:id/sekil-link` → `{url, qr, bitir}`; `qr` — SVG-nin `data:image/svg+xml;base64,...` forması
   (CSP `img-src data:` icazə verir). Köhnə açıq link bağlanır.
-- `GET /api/emekdaslar/:id/sekil-link` → `{acıq: bool, bitir, istifade}` — panel pəncərəsi 3 saniyədən bir soruşur və şəkil
+- `GET /api/emekdaslar/:id/sekil-link` → `{aciq: bool, bitir, istifade}` — panel pəncərəsi 3 saniyədən bir soruşur və şəkil
   gələndə önizləməni göstərir.
 - `POST /api/emekdaslar/:id/sekil` (gövdə: JPEG, ≤5 MB) — kompüterdən yükləmə.
 - `GET /api/emekdaslar/:id/sekil` → `COALESCE(hr_sekil, sekil)`.
