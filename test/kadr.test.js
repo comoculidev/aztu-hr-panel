@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import ExcelJS from 'exceljs';
 import { bazaAc, indiYaz } from '../src/db.js';
 import { SorguXetasi } from '../src/hesabat.js';
-import { esasSetir, kadrOxu, kadrYukle, qatla, sablonAcari } from '../src/kadr.js';
+import { eslemeYaz, esasSetir, kadrOxu, kadrYukle, qatla, sablonAcari } from '../src/kadr.js';
 import { qrafikTap, qrafikYaz } from '../src/qrafik.js';
 
 const K = { isBaslama: '09:00', isBitme: '18:00' };
@@ -88,10 +88,12 @@ test('uyğunlaşdırma: tapıldı / ehtimal / çoxmənalı / yoxdur', async () =
     setir('Kamran', 'Quliyev'), setir('Nigar', 'Abbasova')]);
   const n = await kadrYukle(db, buf, { bas: '2026-11-03', kim: 't' });
   assert.equal(n.cemi, 5);
-  assert.equal(n.tapildi, 1);
+  assert.equal(n.tapildi, 3);
   assert.equal(acar(db, 'ali'), 'tam_1');
-  assert.deepEqual(n.ehtimal.map((x) => [x.sexs.soyad, x.namizedler.map((c) => c.id)]), [['Hüsənova', ['leyla']]]);
-  assert.deepEqual(n.coxmenali.map((x) => [x.sexs.soyad, x.namizedler.map((c) => c.id).sort()]), [['Cəlilov', ['r1', 'r2']]]);
+  assert.deepEqual([acar(db, 'r1'), acar(db, 'r2')], ['tam_1', 'tam_1']);   // Excel-də bir Rəşad Cəlilov — hər iki qeyd onun
+  assert.deepEqual(n.ehtimal.map((x) => [x.sexs.soyad, x.sebeb, x.namizedler.map((c) => c.id)]), [['Hüsənova', 'yazilis', ['leyla']]]);
+  assert.deepEqual(n.coxmenali, []);
+  assert.deepEqual(n.excelsiz.map((e) => e.id), []);
   assert.deepEqual(n.yoxdur.map((x) => x.soyad).sort(), ['Abbasova', 'Quliyev']);
   assert.equal(acar(db, 'leyla'), 'Standart');                // ehtimal avtomatik təyin olunmur
   assert.ok(!JSON.stringify(n).includes('ZZZ9999'));
@@ -154,4 +156,63 @@ test('başlıqlar böyük hərflə və latın "I" ilə yazılsa da tanınır', a
   const { setirler } = await kadrOxu(buf);
   assert.deepEqual([setirler[0].tip, setirler[0].is_vaxti, setirler[0].cixis, setirler[0].isci_qrup],
     ['Əsas', 'Tam', '2026-10-01', 'Professor müəllim heyəti']);
+});
+
+// [ad, soyad, ata, müəssisə, vəzifə, tip, ştat] → BASLIQ sırası ilə sətir
+const tamSetir = (ad, soyad, ata, muessise, vezife, tip = 'Əsas', stat = '1') =>
+  ['ZZZ9999', ad, soyad, ata, muessise, vezife, 'Professor müəllim heyəti', tip, stat, null, 'Tam'];
+
+test('kamera bazasında eyni adamın bir neçə qeydi — qrafik hamısına yazılır', async () => {
+  const db = baza([['a1', 'Ali', 'Veliyev', 'MUTEXESIS'], ['a2', 'Ali', 'Veliyev', 'MUTEXESSIS'], ['a3', 'Ali', 'Veliyev', 'DOSENT']]);
+  const buf = await excelQur(BASLIQ, [tamSetir('Əli', 'Vəliyev', 'Rasim', 'Kitabxana', 'Mütəxəssis', 'Əsas', '0.5'),
+    tamSetir('Əli', 'Vəliyev', 'Rasim', 'Fizika kafedrası', 'Dosent', 'Daxili əvəzçi', '0.25')]);
+  const n = await kadrYukle(db, buf, { bas: '2026-11-03', kim: 't' });
+  assert.equal(n.tapildi, 3);
+  assert.deepEqual(['a1', 'a2', 'a3'].map((id) => acar(db, id)), ['stat_05', 'stat_05', 'stat_05']);
+  assert.deepEqual([n.coxmenali.length, n.excelsiz.length], [0, 0]);
+});
+
+test('bir Excel şəxsi, vəzifə heç bir qeydə uyğun deyil — hamısına yazılır', async () => {
+  const db = baza([['a1', 'Ali', 'Veliyev', 'MUELLIM'], ['a2', 'Ali', 'Veliyev', 'MUELLIM']]);
+  const buf = await excelQur(BASLIQ, [tamSetir('Əli', 'Vəliyev', '', 'Fizika kafedrası', 'Dosent')]);
+  const n = await kadrYukle(db, buf, { bas: '2026-11-03', kim: 't' });
+  assert.equal(n.tapildi, 2);
+});
+
+test('Excel-də eyni adlı iki adam — vəzifəyə görə ayrılır', async () => {
+  const db = baza([['d', 'Ali', 'Veliyev', 'DOSENT'], ['m', 'Ali', 'Veliyev', 'BAS-MUELLIM']]);
+  const buf = await excelQur(BASLIQ, [tamSetir('Əli', 'Vəliyev', 'Rasim', 'Fizika kafedrası', 'Dosent', 'Əsas', '0.5'),
+    tamSetir('Əli', 'Vəliyev', 'Kamil', 'Kimya kafedrası', 'Baş müəllim', 'Əsas', '1')]);
+  const n = await kadrYukle(db, buf, { bas: '2026-11-03', kim: 't' });
+  assert.equal(n.tapildi, 2);
+  assert.deepEqual([acar(db, 'd'), acar(db, 'm')], ['stat_05', 'tam_1']);
+  assert.equal(n.coxmenali.length, 0);
+});
+
+test('Excel-də eyni adlı iki adam, bazada bir qeyd — vəzifəsi uyğun olan, digəri "sistemdə yoxdur"', async () => {
+  const db = baza([['d', 'Ali', 'Veliyev', 'DOSENT']]);
+  const buf = await excelQur(BASLIQ, [tamSetir('Əli', 'Vəliyev', 'Rasim', 'Fizika kafedrası', 'Dosent', 'Əsas', '0.5'),
+    tamSetir('Əli', 'Vəliyev', 'Kamil', 'Kimya kafedrası', 'Baş müəllim')]);
+  const n = await kadrYukle(db, buf, { bas: '2026-11-03', kim: 't' });
+  assert.equal(n.tapildi, 1);
+  assert.equal(acar(db, 'd'), 'stat_05');
+  assert.deepEqual(n.yoxdur.map((s) => s.ata), ['Kamil']);
+});
+
+test('HR-in təsdiqi yadda qalır: növbəti yükləmədə avtomatik tapılır', async () => {
+  const db = baza([['leyla', 'Leyla', 'Hesenova']]);
+  const buf = await excelQur(BASLIQ, [setir('Leyla', 'Hüsənova', '', 'Əsas', '0.5')]);
+  const n1 = await kadrYukle(db, buf, { bas: '2026-11-03', kim: 't' });
+  assert.equal(n1.ehtimal.length, 1);
+  eslemeYaz(db, n1.ehtimal[0].sexs.setirler[0], 'leyla', 't');
+  const n2 = await kadrYukle(db, buf, { bas: '2026-11-03', kim: 't' });
+  assert.deepEqual([n2.tapildi, n2.ehtimal.length, n2.excelsiz.length], [1, 0, 0]);
+  assert.equal(acar(db, 'leyla'), 'stat_05');
+});
+
+test('ata adı fərqlidirsə ehtimal səbəbi "ata"', async () => {
+  const db = baza([['ali', 'Ali', 'Veliyev']]);
+  db.prepare("UPDATE emekdaslar SET ata = 'Kamil' WHERE id = 'ali'").run();
+  const n = await kadrYukle(db, await excelQur(BASLIQ, [setir('Əli', 'Vəliyev', 'Rasim')]), { bas: '2026-11-03', kim: 't' });
+  assert.deepEqual(n.ehtimal.map((x) => [x.sebeb, x.namizedler.map((c) => c.id)]), [['ata', ['ali']]]);
 });

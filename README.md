@@ -40,8 +40,11 @@ Dizayn və API razılaşması: [docs/dizayn.md](docs/dizayn.md).
   09:00–11:00, Qısaldılmış 09:00–16:30, Natamam 09:00–13:00). Şablonun saatı dəyişəndə seçilən tarixdən bütün
   əməkdaşlarına tətbiq olunur.
 - **Kadr siyahısı yüklə** (Əməkdaşlar və ya İş qrafiki səhifəsində): kadr şöbəsinin Excel-i. Adlar kamera bazası ilə
-  tutuşdurulur (ə = a = e), hər əməkdaşa "Əsas" iş yerinin ştatı/iş vaxtına görə şablon təyin olunur. Nəticə: tapıldı,
-  ehtimal (1 hərf fərq — "Təsdiqlə"), çoxmənalı (adaşlar — seçib təsdiqlə), sistemdə yoxdur (Excel kimi endirilir).
+  tutuşdurulur (ə = a = e), hər əməkdaşa "Əsas" iş yerinin ştatı/iş vaxtına görə şablon təyin olunur. Kamera bazasında
+  eyni adamın bir neçə qeydi varsa (vəzifə fərqli yazılıb) qrafik hamısına yazılır; Excel-də adaşlar vəzifə/şöbəyə görə
+  ayrılır. Nəticə: tapılan əməkdaş, ehtimal (ad 1 hərf və ya ata adı fərqli — "Təsdiqlə" / "Hamısını təsdiqlə"),
+  çoxmənalı (seçib təsdiqlə), sistemdə yoxdur (Excel kimi endirilir), sistemdə var amma kadr siyahısında yoxdur
+  (kartdan əl ilə). HR-in təsdiqi yadda qalır (`kadr_esleme`) — növbəti yükləmədə soruşulmur.
   Pin kod (FİN), təvəllüd, cins oxunmur və saxlanmır.
 - Əməkdaş kartında **İş qrafiki → Dəyiş**: şablon və ya fərdi saat, qüvvəyə minmə tarixi ilə. Əl ilə qoyulan qrafik
   Excel yenidən yüklənəndə dəyişmir.

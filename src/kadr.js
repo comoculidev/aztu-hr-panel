@@ -125,49 +125,129 @@ function birFerq(a, b) {
 
 const namized = (e) => ({ id: e.id, ad: e.ad, soyad: e.soyad, ata: e.ata, sobe: e.sobe, vezife: e.vezife });
 
-/** Excel şəxslərini aktiv əməkdaşlarla tutuşdurur (yazmır). */
+/** Excel şəxsinin açarı (HR təsdiqləri bununla yadda saxlanır) */
+export const sexsAcari = (s) => `${qatla(s.ad)}|${qatla(s.soyad)}|${qatla(s.ata)}`;
+
+/**
+ * Bazadakı qeydin Excel şəxsinə nə qədər uyğun olduğu: vəzifə (bazada "qrup" sütunu: DOSENT, BAS-MUELLIM) Excel-in
+ * "Vəzifəsi" ilə üst-üstə düşürsə 2, şöbə adı "Müəssisənin adı"nda keçirsə +1. Eyni adlı adamları ayırmaq üçündür.
+ */
+function uygunluqBali(e, sexs) {
+  const v = qatla(e.vezife);
+  const sb = qatla(e.sobe);
+  let bal = 0;
+  for (const s of sexs.setirler) {
+    const sv = qatla(s.vezife);
+    const sm = qatla(s.muessise);
+    const sobeUygun = (sb.length >= 4 && sm.includes(sb)) || (v.length >= 4 && sm.includes(v));
+    const vezifeUygun = v && sv && (v === sv || birFerq(v, sv) || sv.startsWith(v) || v.startsWith(sv));
+    bal = Math.max(bal, (vezifeUygun ? 2 : 0) + (sobeUygun ? 1 : 0));
+  }
+  return bal;
+}
+
+/**
+ * Excel şəxslərini aktiv əməkdaşlarla tutuşdurur (yazmır). Ardıcıllıq:
+ *  1. HR-in əvvəlki təsdiqləri (kadr_esleme) — ad necə yazılsa da həmin əməkdaş;
+ *  2. ad+soyad eyni olanlar. Kamera bazasında eyni adamın bir neçə qeydi ola bilər (vəzifə fərqli yazılıb, iki iş yeri):
+ *     Excel-də o adda bir nəfər varsa, qrafik hamısına yazılır (vəzifəsi uyğun gələnlər varsa — yalnız onlara);
+ *     Excel-də eyni adlı bir neçə adam varsa — vəzifə/şöbəyə görə ayrılır, ayrılmayanlar "çoxmənalı" qalır;
+ *  3. ad və ya soyad 1 hərf fərqli — "ehtimal", HR təsdiqləyir.
+ * Ata adı hər iki tərəfdə varsa, uyğun gəlməlidir (kamera bazasında əməkdaşların çoxunda ata adı yoxdur).
+ */
 export function uygunlasdir(db, setirler, bas) {
   let isdenCixib = 0;
   const sexsMap = new Map();
   for (const s of setirler) {
     if (s.cixis && s.cixis <= bas) { isdenCixib += 1; continue; }
-    const acar = `${qatla(s.ad)}|${qatla(s.soyad)}|${qatla(s.ata)}`;
+    const acar = sexsAcari(s);
     if (!sexsMap.has(acar)) sexsMap.set(acar, { ad: s.ad, soyad: s.soyad, ata: s.ata, setirler: [] });
     sexsMap.get(acar).setirler.push(s);
   }
-  const emekdaslar = db.prepare('SELECT id, ad, soyad, ata, sobe, vezife FROM emekdaslar WHERE aktiv = 1').all()
+  const emekdaslar = db.prepare('SELECT id, ad, soyad, ata, sobe, vezife FROM emekdaslar WHERE aktiv = 1 ORDER BY id').all()
     .map((e) => ({ ...e, qa: qatla(e.ad), qs: qatla(e.soyad), qt: qatla(e.ata) }));
+  const idile = new Map(emekdaslar.map((e) => [e.id, e]));
   const indeks = new Map();
   for (const e of emekdaslar) {
     const a = `${e.qa}|${e.qs}`;
     if (!indeks.has(a)) indeks.set(a, []);
     indeks.get(a).push(e);
   }
-  const ilkin = [];
+  const tapildi = [];
+  const tutulub = new Set();
+  const tap = (e, sexs) => { tapildi.push({ emekdas: e, sexs }); tutulub.add(e.id); };
+
+  // 1. əvvəlki təsdiqlər
+  const esleme = db.prepare('SELECT emekdas_id FROM kadr_esleme WHERE sexs_acar = ?');
+  const qruplar = new Map();
+  for (const [acar, sexs] of sexsMap) {
+    const evvel = esleme.all(acar).map((r) => idile.get(r.emekdas_id)).filter((e) => e && !tutulub.has(e.id));
+    if (evvel.length) { evvel.forEach((e) => tap(e, sexs)); continue; }
+    const k = `${qatla(sexs.ad)}|${qatla(sexs.soyad)}`;
+    if (!qruplar.has(k)) qruplar.set(k, []);
+    qruplar.get(k).push(sexs);
+  }
+
+  // 2. ad+soyad eyni
+  const uyar = (e, sexs) => { const qt = qatla(sexs.ata); return !qt || !e.qt || e.qt === qt; };
   const ehtimal = [];
   const coxmenali = [];
   const yoxdur = [];
-  for (const sexs of sexsMap.values()) {
-    const [qa, qs, qt] = [qatla(sexs.ad), qatla(sexs.soyad), qatla(sexs.ata)];
-    const hamisi = indeks.get(`${qa}|${qs}`) ?? [];
-    // ata adı hər iki tərəfdə varsa, uyğun gəlməlidir (kamera bazasında əməkdaşların çoxunda ata adı yoxdur)
-    const uygun = hamisi.filter((e) => !qt || !e.qt || e.qt === qt);
-    if (uygun.length === 1) { ilkin.push({ emekdas: uygun[0], sexs }); continue; }
-    if (uygun.length > 1) { coxmenali.push({ sexs, namizedler: uygun.map(namized) }); continue; }
-    const yaxin = hamisi.length ? hamisi : emekdaslar.filter((e) => (e.qa === qa && birFerq(e.qs, qs))
-      || (e.qs === qs && birFerq(e.qa, qa)) || (e.qa === qs && e.qs === qa));
-    if (yaxin.length) ehtimal.push({ sexs, namizedler: yaxin.map(namized) });
+  const yazilisaQalan = [];
+  for (const [k, sexsler] of qruplar) {
+    const hamisi = (indeks.get(k) ?? []).filter((e) => !tutulub.has(e.id));
+    if (!hamisi.length) { yazilisaQalan.push(...sexsler); continue; }
+    const verilen = new Map(sexsler.map((s) => [s, []]));
+    const ayrilmayan = [];
+    for (const e of hamisi) {
+      const uygun = sexsler.filter((s) => uyar(e, s));
+      if (!uygun.length) continue;
+      const ballar = uygun.map((s) => uygunluqBali(e, s));
+      const max = Math.max(...ballar);
+      const enYaxsi = uygun.filter((_, i) => ballar[i] === max);
+      if (enYaxsi.length === 1 && (max > 0 || uygun.length === 1)) verilen.get(enYaxsi[0]).push({ e, bal: max });
+      else ayrilmayan.push({ e, uygun });
+    }
+    const verildi = new Set();
+    for (const s of sexsler) {
+      let al = verilen.get(s);
+      // Excel-də bu adda bir nəfərdirsə, bazadakı bütün qeydlər onundur (eyni adamın vəzifəsi fərqli yazılmış qeydləri).
+      // Bir neçə adaş varsa, vəzifəsi uyğun gəlməyən qeyd başqa adam ola bilər — "Excel-də yoxdur"da qalır.
+      if (sexsler.length > 1) {
+        const hedd = al.some((x) => x.bal >= 2) ? 2 : Number(al.some((x) => x.bal > 0));
+        al = al.filter((x) => x.bal >= hedd);
+      }
+      verilen.set(s, al);
+      for (const { e } of al) { tap(e, s); verildi.add(e.id); }
+    }
+    for (const s of sexsler) {
+      if (verilen.get(s).length) continue;
+      const namizedler = ayrilmayan.filter((x) => x.uygun.includes(s) && !verildi.has(x.e.id)).map((x) => x.e);
+      const ataFerqli = hamisi.filter((e) => !uyar(e, s) && !verildi.has(e.id));
+      if (namizedler.length) coxmenali.push({ sexs: s, namizedler: namizedler.map(namized) });
+      else if (ataFerqli.length) ehtimal.push({ sexs: s, sebeb: 'ata', namizedler: ataFerqli.map(namized) });
+      else yoxdur.push(s);
+    }
+  }
+
+  // 3. yazılış fərqi — yalnız hələ heç kimə düşməmiş əməkdaşlar arasında
+  for (const sexs of yazilisaQalan) {
+    const [qa, qs] = [qatla(sexs.ad), qatla(sexs.soyad)];
+    const yaxin = emekdaslar.filter((e) => !tutulub.has(e.id) && ((e.qa === qa && birFerq(e.qs, qs))
+      || (e.qs === qs && birFerq(e.qa, qa)) || (e.qa === qs && e.qs === qa)));
+    if (yaxin.length) ehtimal.push({ sexs, sebeb: 'yazilis', namizedler: yaxin.map(namized) });
     else yoxdur.push(sexs);
   }
-  // iki Excel şəxsi bir əməkdaşa düşürsə — hansının o olduğu bilinmir
-  const say = new Map();
-  for (const t of ilkin) say.set(t.emekdas.id, (say.get(t.emekdas.id) ?? 0) + 1);
-  const tapildi = [];
-  for (const t of ilkin) {
-    if (say.get(t.emekdas.id) > 1) coxmenali.push({ sexs: t.sexs, namizedler: [namized(t.emekdas)] });
-    else tapildi.push(t);
-  }
-  return { sexsler: [...sexsMap.values()], tapildi, ehtimal, coxmenali, yoxdur, isdenCixib };
+  const toxunulan = new Set([...tutulub, ...[...ehtimal, ...coxmenali].flatMap((x) => x.namizedler.map((c) => c.id))]);
+  const excelsiz = emekdaslar.filter((e) => !toxunulan.has(e.id)).map(namized);
+  return { sexsler: [...sexsMap.values()], tapildi, ehtimal, coxmenali, yoxdur, excelsiz, isdenCixib };
+}
+
+/** HR-in təsdiqi: bu Excel şəxsi (ad, soyad, ata) həmin əməkdaşdır — növbəti yükləmələrdə avtomatik uyğunlaşır */
+export function eslemeYaz(db, setir, emekdasId, kim) {
+  db.prepare(`INSERT INTO kadr_esleme (sexs_acar, emekdas_id, kim, yaradilib) VALUES (?, ?, ?, ?)
+    ON CONFLICT (sexs_acar, emekdas_id) DO UPDATE SET kim = excluded.kim, yaradilib = excluded.yaradilib`)
+    .run(sexsAcari(setir), emekdasId, kim, indiYaz());
 }
 
 /**
@@ -199,15 +279,16 @@ export async function kadrYukle(db, buf, { bas, kim }) {
   const { setirler, xeberdarliqlar } = await kadrOxu(buf);
   const u = uygunlasdir(db, setirler, bas);
   const say = { yazildi: 0, deyismedi: 0, qorundu: 0 };
+  const xeberdar = new Set();
   emeliyyat(db, () => {
     for (const t of u.tapildi) {
       say[kadrTetbiqEt(db, { emekdasId: t.emekdas.id, setirler: t.sexs.setirler, bas, kim })] += 1;
       const x = sablonAcari(esasSetir(t.sexs.setirler)).xeberdarliq;
-      if (x) xeberdarliqlar.push(`${t.sexs.ad} ${t.sexs.soyad}: ${x}`);
+      if (x && !xeberdar.has(t.sexs) && xeberdar.add(t.sexs)) xeberdarliqlar.push(`${t.sexs.ad} ${t.sexs.soyad}: ${x}`);
     }
   });
   return {
     bas, cemi: u.sexsler.length, tapildi: u.tapildi.length, ...say, isdenCixib: u.isdenCixib, xeberdarliqlar,
-    ehtimal: u.ehtimal, coxmenali: u.coxmenali, yoxdur: u.yoxdur,
+    ehtimal: u.ehtimal, coxmenali: u.coxmenali, yoxdur: u.yoxdur, excelsiz: u.excelsiz,
   };
 }

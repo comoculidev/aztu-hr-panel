@@ -325,6 +325,12 @@ test('kadr yükləmə: nəticə, təsdiq, tapılmayanların Excel-i', async () =
     assert.equal(t.status, 200);
     const q = (await sorgu('/api/emekdaslar/samir/qrafik', { kuki })).json;
     assert.deepEqual([q.indiki.ad, q.indiki.menbe, q.kadr[0].stat], ['Tam, 0,5 ştat', 'excel', 0.5]);
+    // təsdiq yadda qalır: yenidən yükləmədə Samir Quluyev artıq "ehtimal" deyil
+    const c2 = await fetch(`${url}/api/kadr/yukle?bas=${buGun()}`, { method: 'POST',
+      headers: { Cookie: kuki, 'X-Aztu': '1', 'Content-Type': 'application/octet-stream' }, body: Buffer.from(await wb.xlsx.writeBuffer()) });
+    const n2 = await c2.json();
+    assert.deepEqual([n2.tapildi, n2.ehtimal.length], [2, 0]);
+    assert.ok(Array.isArray(n2.excelsiz) && !n2.excelsiz.some((e) => e.id === 'samir'));
 
     const x = await fetch(`${url}/api/kadr/excel`, { method: 'POST',
       headers: { Cookie: kuki, 'X-Aztu': '1', 'Content-Type': 'application/json' }, body: JSON.stringify({ setirler: n.yoxdur }) });
@@ -337,6 +343,7 @@ test('kadr yükləmə: nəticə, təsdiq, tapılmayanların Excel-i', async () =
   } finally {
     db.prepare('DELETE FROM emekdas_qrafik').run();
     db.prepare('DELETE FROM kadr_melumati').run();
+    db.prepare('DELETE FROM kadr_esleme').run();
     db.prepare("DELETE FROM emekdaslar WHERE id = 'samir'").run();
   }
 });

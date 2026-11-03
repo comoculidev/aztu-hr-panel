@@ -1266,10 +1266,12 @@ function kadrPencere() {
 }
 
 function kadrNeticeCiz(qab, n) {
-  const gosterici = [['Excel-də şəxs', n.cemi], ['Tapıldı', n.tapildi], ['Qrafik yazıldı', n.yazildi], ['Dəyişməyib', n.deyismedi],
-    ['Əl ilə qorundu', n.qorundu], ['Ehtimal', n.ehtimal.length], ['Çoxmənalı', n.coxmenali.length], ['Sistemdə yoxdur', n.yoxdur.length]]
+  const gosterici = [['Excel-də şəxs', n.cemi], ['Tapılan əməkdaş', n.tapildi], ['Qrafik yazıldı', n.yazildi], ['Dəyişməyib', n.deyismedi],
+    ['Əl ilə qorundu', n.qorundu], ['Ehtimal', n.ehtimal.length], ['Çoxmənalı', n.coxmenali.length], ['Sistemdə yoxdur', n.yoxdur.length],
+    ['Excel-də yoxdur', n.excelsiz?.length ?? 0]]
     .concat(n.isdenCixib ? [['İşdən çıxıb', n.isdenCixib]] : []);
-  const secimSetri = (x, i, nov) => `<tr data-nov="${nov}" data-i="${i}"><td><b>${esc(sexsAdi(x.sexs))}</b><span class="alt">${esc(sexsIzah(x.sexs))}</span></td>
+  const SEBEB = { ata: 'ata adı fərqlidir', yazilis: 'ad və ya soyad 1 hərf fərqlidir' };
+  const secimSetri = (x, i, nov) => `<tr data-nov="${nov}" data-i="${i}"><td><b>${esc(sexsAdi(x.sexs))}</b>${SEBEB[x.sebeb] ? ` <span class="nisan">${SEBEB[x.sebeb]}</span>` : ''}<span class="alt">${esc(sexsIzah(x.sexs))}</span></td>
     <td><select aria-label="Sistemdəki əməkdaş">${x.namizedler.map((c) => `<option value="${esc(c.id)}">${esc(namizedAdi(c))}</option>`).join('')}</select></td>
     <td class="r"><button class="dugme" type="button" data-tesdiq>Təsdiqlə</button></td></tr>`;
   const ehtimal = n.ehtimal.map((x, i) => secimSetri(x, i, 'ehtimal')).join('');
@@ -1277,23 +1279,32 @@ function kadrNeticeCiz(qab, n) {
   qab.innerHTML = `
     <div class="gosterici-setri">${gosterici.map(([a, v]) => `<div class="gosterici"><div class="etiket">${a}</div><div class="reqem">${reqem(v)}</div></div>`).join('')}</div>
     ${n.xeberdarliqlar.length ? `<div class="qeyd-qutu">${n.xeberdarliqlar.slice(0, 20).map(esc).join('<br>')}</div>` : ''}
-    ${ehtimal ? `<h3>Ehtimal — adın yazılışı 1 hərf fərqlidir</h3><p class="alt-metn">Eyni adamdırsa "Təsdiqlə" basın — qrafik Excel-ə görə təyin olunur.</p>
+    ${ehtimal ? `<div class="kart-bas"><h3>Ehtimal — yoxlayın (${reqem(n.ehtimal.length)})</h3>
+        <button class="dugme" type="button" id="kd-hamisi">Hamısını təsdiqlə</button></div>
+      <p class="alt-metn">Eyni adamdırsa "Təsdiqlə" basın — qrafik Excel-ə görə təyin olunur. Təsdiq yadda qalır: növbəti yükləmədə soruşulmayacaq.</p>
       <div class="cedvel-qab"><table><tbody>${ehtimal}</tbody></table></div>` : ''}
-    ${coxmenali ? `<h3>Çoxmənalı — eyni adlı bir neçə əməkdaş</h3><p class="alt-metn">Siyahıdan doğru əməkdaşı seçib təsdiqləyin.</p>
+    ${coxmenali ? `<h3>Çoxmənalı — eyni adlı bir neçə əməkdaş (${reqem(n.coxmenali.length)})</h3><p class="alt-metn">Siyahıdan doğru əməkdaşı seçib təsdiqləyin.</p>
       <div class="cedvel-qab"><table><tbody>${coxmenali}</tbody></table></div>` : ''}
     ${n.yoxdur.length ? `<div class="kart-bas"><h3>Sistemdə yoxdur (${reqem(n.yoxdur.length)})</h3>
         <button class="dugme excel" type="button" id="kd-excel">${IKON.excel}Excel endir</button></div>
       <p class="alt-metn">Kamera bazasında şəkli olmayanlar: şəkilləri bazaya əlavə ediləndə avtomatik gələcəklər.</p>
       <div class="cedvel-qab"><table><tbody>${n.yoxdur.slice(0, 100).map((s) => `<tr><td><b>${esc(sexsAdi(s))}</b><span class="alt">${esc(sexsIzah(s))}</span></td></tr>`).join('')}
-        ${n.yoxdur.length > 100 ? `<tr><td class="alt-metn">… və daha ${reqem(n.yoxdur.length - 100)} nəfər (Excel-də hamısı)</td></tr>` : ''}</tbody></table></div>` : ''}`;
-  for (const b of $$('[data-tesdiq]', qab)) {
-    b.addEventListener('click', () => gozleIsle(b, async () => {
-      const tr = b.closest('tr');
-      const x = n[tr.dataset.nov][Number(tr.dataset.i)];
-      const r = await postJson('/api/kadr/tesdiq', { bas: n.bas, emekdas_id: $('select', tr).value, setirler: x.sexs.setirler });
-      tr.innerHTML = `<td colspan="3"><span class="nisan ok">Təsdiqləndi</span> ${esc(sexsAdi(x.sexs))}${r.netice === 'qorundu' ? ' <span class="alt-metn">(əl ilə qoyulmuş qrafik qorundu)</span>' : ''}</td>`;
-    }));
-  }
+        ${n.yoxdur.length > 100 ? `<tr><td class="alt-metn">… və daha ${reqem(n.yoxdur.length - 100)} nəfər (Excel-də hamısı)</td></tr>` : ''}</tbody></table></div>` : ''}
+    ${n.excelsiz?.length ? `<h3>Sistemdə var, kadr siyahısında yoxdur (${reqem(n.excelsiz.length)})</h3>
+      <p class="alt-metn">Bunlara standart qrafik tətbiq olunur. Lazımdırsa əməkdaşın kartından qrafiki əl ilə təyin edin.</p>
+      <div class="cedvel-qab"><table><tbody>${n.excelsiz.map((e) => `<tr><td><a href="${kartUrl(e.id)}"><b>${esc(`${e.soyad} ${e.ad}`)}</b></a><span class="alt">${esc([e.vezife, e.sobe].filter(Boolean).join(' · '))}</span></td></tr>`).join('')}</tbody></table></div>` : ''}`;
+  const tesdiqle = async (tr) => {
+    const x = n[tr.dataset.nov][Number(tr.dataset.i)];
+    const r = await postJson('/api/kadr/tesdiq', { bas: n.bas, emekdas_id: $('select', tr).value, setirler: x.sexs.setirler });
+    tr.innerHTML = `<td colspan="3"><span class="nisan ok">Təsdiqləndi</span> ${esc(sexsAdi(x.sexs))}${r.netice === 'qorundu' ? ' <span class="alt-metn">(əl ilə qoyulmuş qrafik qorundu)</span>' : ''}</td>`;
+  };
+  for (const b of $$('[data-tesdiq]', qab)) b.addEventListener('click', () => gozleIsle(b, () => tesdiqle(b.closest('tr'))));
+  $('#kd-hamisi', qab)?.addEventListener('click', (ev) => {
+    if (!confirm(`Ehtimal siyahısındakı ${n.ehtimal.length} nəfərin hamısı seçilmiş əməkdaşla təsdiqlənsin?`)) return;
+    gozleIsle(ev.currentTarget, async () => {
+      for (const tr of $$('tr[data-nov="ehtimal"]', qab)) await tesdiqle(tr);
+    });
+  });
   $('#kd-excel', qab)?.addEventListener('click', (ev) => gozleIsle(ev.currentTarget, async () => {
     const c = await fetch('/api/kadr/excel', { method: 'POST', headers: { 'X-Aztu': '1', 'Content-Type': 'application/json' }, body: JSON.stringify({ setirler: n.yoxdur }) });
     if (!c.ok) throw new Error((await c.json().catch(() => ({}))).xeta || 'Excel hazırlanmadı');

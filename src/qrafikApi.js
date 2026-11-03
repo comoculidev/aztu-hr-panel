@@ -3,7 +3,7 @@ import express from 'express';
 import ExcelJS from 'exceljs';
 import { buGun, emeliyyat } from './db.js';
 import { SorguXetasi, araliq, emekdasSec } from './hesabat.js';
-import { kadrTetbiqEt, kadrYukle } from './kadr.js';
+import { eslemeYaz, kadrTetbiqEt, kadrYukle } from './kadr.js';
 import { qrafikTap, qrafikXeritesi, qrafikYaz, sablonSaatYaz, sablonSaati } from './qrafik.js';
 
 const asinxron = (f) => (req, res, next) => Promise.resolve(f(req, res, next)).catch(next);
@@ -103,8 +103,12 @@ export function qrafikRouter(db, k, log = console) {
     if (!e?.aktiv) return res.status(404).json({ xeta: 'Əməkdaş tapılmadı' });
     if (!Array.isArray(b.setirler) || !b.setirler.length || b.setirler.length > 20) throw new SorguXetasi('setirler: 1-20 sətir');
     const bas = basOxu(b.bas);
-    const netice = emeliyyat(db, () => kadrTetbiqEt(db, { emekdasId: e.id, setirler: b.setirler.map(kadrSetri), bas,
-      kim: req.istifadeci.ad }));
+    const setirler = b.setirler.map(kadrSetri);
+    // təsdiq yadda saxlanır ki, növbəti yükləmədə bu şəxs yenidən soruşulmasın
+    const netice = emeliyyat(db, () => {
+      eslemeYaz(db, setirler[0], e.id, req.istifadeci.ad);
+      return kadrTetbiqEt(db, { emekdasId: e.id, setirler, bas, kim: req.istifadeci.ad });
+    });
     log.info(`kadr: ${req.istifadeci.ad} — təsdiq: ${e.ad} ${e.soyad} (${netice})`);
     res.json({ netice });
   });

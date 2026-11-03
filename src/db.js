@@ -61,6 +61,14 @@ CREATE TABLE IF NOT EXISTS kadr_melumati (
   yuklenib TEXT NOT NULL,
   PRIMARY KEY (emekdas_id, sira)
 );
+-- HR-in "bu Excel şəxsi bu əməkdaşdır" təsdiqi (ad yazılışı fərqli, eyni adlılar); sexs_acar = qatla(ad|soyad|ata)
+CREATE TABLE IF NOT EXISTS kadr_esleme (
+  sexs_acar TEXT NOT NULL,
+  emekdas_id TEXT NOT NULL REFERENCES emekdaslar(id),
+  kim TEXT NOT NULL,
+  yaradilib TEXT NOT NULL,
+  PRIMARY KEY (sexs_acar, emekdas_id)
+);
 `;
 
 /** Başlanğıc şablonlar (HR ilə razılaşdırılıb, 03.11.2026); saatlara nahar fasiləsi daxildir. Sonra paneldən dəyişir. */
