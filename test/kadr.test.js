@@ -216,3 +216,13 @@ test('ata adı fərqlidirsə ehtimal səbəbi "ata"', async () => {
   const n = await kadrYukle(db, await excelQur(BASLIQ, [setir('Əli', 'Vəliyev', 'Rasim')]), { bas: '2026-11-03', kim: 't' });
   assert.deepEqual(n.ehtimal.map((x) => [x.sebeb, x.namizedler.map((c) => c.id)]), [['ata', ['ali']]]);
 });
+
+test('ehtimal: 2 hərf fərq (vəzifə uyğundursa) və iki sözlü ad', async () => {
+  const db = baza([['n', 'Nulifer', 'Qasimova', 'BAS-MUELLIM'], ['r', 'Rahid', 'Aliyev', 'MUELLIM'], ['m', 'Marco', 'Bellini', 'MUELLIM']]);
+  const buf = await excelQur(BASLIQ, [tamSetir('Nilufər', 'Qasımova', 'Kamal', 'Fizika kafedrası', 'Baş müəllim'),
+    tamSetir('Rəşad', 'Əliyev', 'Yavər', 'Kimya kafedrası', 'Dosent'),
+    tamSetir('Marco Luca', 'Bellini', '', 'Xarici dillər kafedrası', 'Baş müəllim')]);
+  const n = await kadrYukle(db, buf, { bas: '2026-11-03', kim: 't' });
+  assert.deepEqual(n.ehtimal.map((x) => [x.sexs.soyad, x.namizedler.map((c) => c.id)]).sort(), [['Bellini', ['m']], ['Qasımova', ['n']]]);
+  assert.deepEqual(n.yoxdur.map((s) => s.soyad), ['Əliyev']);                  // 2 hərf fərq, amma vəzifə fərqli
+});

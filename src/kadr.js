@@ -106,6 +106,21 @@ export function sablonAcari(s) {
 }
 
 /** Levenshtein məsafəsi ≤ 1 (bir hərf əlavə, silinmə və ya dəyişmə) */
+/** Levenshtein məsafəsi ≤ 2 (yerdəyişmə "Nulifer/Nilufer" 2 sayılır) */
+function ikiFerq(a, b) {
+  if (Math.abs(a.length - b.length) > 2) return false;
+  let evvel = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i += 1) {
+    const indi = [i];
+    for (let j = 1; j <= b.length; j += 1) {
+      indi[j] = Math.min(evvel[j] + 1, indi[j - 1] + 1, evvel[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    }
+    if (Math.min(...indi) > 2) return false;
+    evvel = indi;
+  }
+  return evvel[b.length] <= 2;
+}
+
 function birFerq(a, b) {
   if (a === b) return true;
   if (Math.abs(a.length - b.length) > 1) return false;
@@ -231,10 +246,15 @@ export function uygunlasdir(db, setirler, bas) {
   }
 
   // 3. yazılış fərqi — yalnız hələ heç kimə düşməmiş əməkdaşlar arasında
+  // Əlavə: iki sözlü ad (Excel-də "Marco Luca", bazada "Marco"); ad+soyad cəmi 2 hərf fərqli — yalnız vəzifə də
+  // uyğundursa (yoxsa Rahid/Rəşad kimi fərqli adamlar namizəd olardı)
+  const ilkSoz = (s) => qatla(String(s ?? '').trim().split(/\s+/)[0]);
   for (const sexs of yazilisaQalan) {
     const [qa, qs] = [qatla(sexs.ad), qatla(sexs.soyad)];
     const yaxin = emekdaslar.filter((e) => !tutulub.has(e.id) && ((e.qa === qa && birFerq(e.qs, qs))
-      || (e.qs === qs && birFerq(e.qa, qa)) || (e.qa === qs && e.qs === qa)));
+      || (e.qs === qs && birFerq(e.qa, qa)) || (e.qa === qs && e.qs === qa)
+      || (e.qs === qs && ilkSoz(e.ad) === ilkSoz(sexs.ad))
+      || (ikiFerq(e.qa + e.qs, qa + qs) && uygunluqBali(e, sexs) >= 2)));
     if (yaxin.length) ehtimal.push({ sexs, sebeb: 'yazilis', namizedler: yaxin.map(namized) });
     else yoxdur.push(sexs);
   }
