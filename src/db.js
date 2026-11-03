@@ -34,7 +34,55 @@ CREATE TABLE IF NOT EXISTS sessiyalar (
   bitir INTEGER NOT NULL
 );
 CREATE TABLE IF NOT EXISTS sistem (acar TEXT PRIMARY KEY, deyer TEXT NOT NULL);
+-- iş qrafiki: şablonlar, şablon saatının tarixçəsi, əməkdaşa təyinatın tarixçəsi (dəyişiklik tarixlə qüvvəyə minir —
+-- köhnə günlər köhnə saatla hesablanır), kadr Excel-indən gələn məlumat (FİN, doğum tarixi saxlanmır)
+CREATE TABLE IF NOT EXISTS qrafik_sablonlari (
+  id INTEGER PRIMARY KEY, acar TEXT NOT NULL UNIQUE, ad TEXT NOT NULL, sira INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS sablon_saatlari (
+  sablon_id INTEGER NOT NULL REFERENCES qrafik_sablonlari(id),
+  bas TEXT NOT NULL, baslama TEXT NOT NULL, bitme TEXT NOT NULL,
+  kim TEXT NOT NULL, yaradilib TEXT NOT NULL,
+  PRIMARY KEY (sablon_id, bas)
+);
+CREATE TABLE IF NOT EXISTS emekdas_qrafik (
+  emekdas_id TEXT NOT NULL REFERENCES emekdaslar(id),
+  bas TEXT NOT NULL,
+  sablon_id INTEGER REFERENCES qrafik_sablonlari(id),   -- şablon VƏ YA fərdi saat
+  baslama TEXT, bitme TEXT,
+  menbe TEXT NOT NULL,                                  -- 'excel' | 'el'
+  kim TEXT NOT NULL, yaradilib TEXT NOT NULL,
+  PRIMARY KEY (emekdas_id, bas)
+);
+CREATE TABLE IF NOT EXISTS kadr_melumati (
+  emekdas_id TEXT NOT NULL REFERENCES emekdaslar(id),
+  sira INTEGER NOT NULL,                                -- 0 = qrafik götürülən (Əsas) sətir
+  muessise TEXT, vezife TEXT, isci_qrup TEXT, tip TEXT, stat REAL, is_vaxti TEXT,
+  yuklenib TEXT NOT NULL,
+  PRIMARY KEY (emekdas_id, sira)
+);
 `;
+
+/** Başlanğıc şablonlar (HR ilə razılaşdırılıb, 03.11.2026); saatlara nahar fasiləsi daxildir. Sonra paneldən dəyişir. */
+export const SABLONLAR = [
+  { acar: 'tam_1', ad: 'Tam, 1 ştat', baslama: '09:00', bitme: '17:30' },
+  { acar: 'stat_075', ad: 'Tam, 0,75 ştat', baslama: '09:00', bitme: '16:00' },
+  { acar: 'stat_05', ad: 'Tam, 0,5 ştat', baslama: '09:00', bitme: '13:00' },
+  { acar: 'stat_025', ad: 'Tam, 0,25 ştat', baslama: '09:00', bitme: '11:00' },
+  { acar: 'qisaldilmis', ad: 'Qısaldılmış', baslama: '09:00', bitme: '16:30' },
+  { acar: 'natamam', ad: 'Natamam', baslama: '09:00', bitme: '13:00' },
+];
+
+/** Şablon yoxdursa yaradır (ilk saatı 2000-01-01-dən); varsa toxunmur — HR-in dəyişdiyi saat qorunur. */
+function sablonlariYaz(db) {
+  const indi = indiYaz();
+  const yaz = db.prepare('INSERT OR IGNORE INTO qrafik_sablonlari (acar, ad, sira) VALUES (?, ?, ?)');
+  const saat = db.prepare(`INSERT OR IGNORE INTO sablon_saatlari (sablon_id, bas, baslama, bitme, kim, yaradilib)
+    SELECT id, '2000-01-01', ?, ?, 'sistem', ? FROM qrafik_sablonlari WHERE acar = ?`);
+  emeliyyat(db, () => SABLONLAR.forEach((s, i) => {
+    if (yaz.run(s.acar, s.ad, i).changes) saat.run(s.baslama, s.bitme, indi, s.acar);
+  }));
+}
 
 export function bazaAc(yol) {
   if (yol !== ':memory:') mkdirSync(path.dirname(yol), { recursive: true });
@@ -44,6 +92,7 @@ export function bazaAc(yol) {
   // köhnə bazaya yeni sütunlar (sonradan əlavə olunanlar) — mövcud məlumat itmir
   sutunElave(db, 'hadiseler', 'adam_no', 'TEXT');     // tanınmayanın qlobal nömrəsi (G7)
   sutunElave(db, 'hadiseler', 'sekil', 'BLOB');       // tanınmayanın kameradakı üzü (30 gün)
+  sablonlariYaz(db);
   return db;
 }
 
