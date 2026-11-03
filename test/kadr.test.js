@@ -1,0 +1,139 @@
+// Kadr Excel-i: oxuma (başlığa görə), ad uyğunlaşdırması, Əsas sətir, şablon seçimi, təkrar yükləmə. Adlar uydurmadır.
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import ExcelJS from 'exceljs';
+import { bazaAc, indiYaz } from '../src/db.js';
+import { SorguXetasi } from '../src/hesabat.js';
+import { esasSetir, kadrOxu, kadrYukle, qatla, sablonAcari } from '../src/kadr.js';
+import { qrafikTap, qrafikYaz } from '../src/qrafik.js';
+
+const K = { isBaslama: '09:00', isBitme: '18:00' };
+const BASLIQ = ['Pin kod', 'Adı', 'Soyadı', 'Atasının adı', 'Müəssisənin adı', 'Vəzifəsi', 'İşçi qrup', 'İşçilərin tipi',
+  'Ştat vahidi', 'İşdən çıxma sən. tarixi', 'İş vaxtı'];
+
+async function excelQur(basliqlar, setirler) {
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Person');
+  ws.addRow(basliqlar);
+  for (const s of setirler) ws.addRow(s);
+  return Buffer.from(await wb.xlsx.writeBuffer());
+}
+// [ad, soyad, ata, tip, ştat, iş vaxtı, çıxış tarixi] → BASLIQ sırası ilə sətir
+const setir = (ad, soyad, ata = '', tip = 'Əsas', stat = '1', vaxt = 'Tam', cixis = null) =>
+  ['ZZZ9999', ad, soyad, ata, 'Kafedra', 'Dosent', 'Professor müəllim heyəti', tip, stat, cixis, vaxt];
+
+function baza(adamlar) {
+  const db = bazaAc(':memory:');
+  const yaz = db.prepare(`INSERT INTO emekdaslar (id, ad, soyad, ata, sobe, vezife, aktiv, axtaris, yaradilib, yenilenib)
+    VALUES (?, ?, ?, '', 'Kafedra', ?, ?, '', ?, ?)`);
+  for (const [id, ad, soyad, vezife = 'DOSENT', aktiv = 1] of adamlar) yaz.run(id, ad, soyad, vezife, aktiv, indiYaz(), indiYaz());
+  return db;
+}
+const acar = (db, id, t = '2026-11-03') => {
+  const q = qrafikTap(db, K, id, t);
+  return q.sablonId ? db.prepare('SELECT acar FROM qrafik_sablonlari WHERE id = ?').get(q.sablonId).acar : q.ad;
+};
+
+test('qatla: ə=e=a, ş=sh, c=j', () => {
+  assert.equal(qatla('Həsənov'), qatla('Hesenov'));
+  assert.equal(qatla('Həsənov'), qatla('Hasanov'));
+  assert.equal(qatla('Cəlilov'), qatla('Jalilov'));
+  assert.equal(qatla('Haşımlı'), qatla('Hashimli'));
+  assert.equal(qatla('İsmayılzadə'), qatla('Ismayilzade'));
+  assert.notEqual(qatla('Əli'), qatla('Elşən'));
+});
+
+test('sütunlar başlıq adına görə, sıra və boşluq fərq etmir; FİN oxunmur', async () => {
+  const buf = await excelQur([' İş vaxtı ', 'Pin kod', 'adı', 'Soyadı', 'Ştat  vahidi', 'İşçilərin tipi', 'Təvəllüdü'],
+    [['Tam', 'ZZZ9999', 'Əli', 'Vəliyev', '0.50', 'Əsas', '01.01.1980']]);
+  const { setirler } = await kadrOxu(buf);
+  assert.equal(setirler.length, 1);
+  assert.deepEqual([setirler[0].ad, setirler[0].soyad, setirler[0].stat, setirler[0].is_vaxti, setirler[0].tip],
+    ['Əli', 'Vəliyev', 0.5, 'Tam', 'Əsas']);
+  const json = JSON.stringify(setirler);
+  assert.ok(!json.includes('ZZZ9999') && !json.includes('1980'));
+});
+
+test('məcburi sütun yoxdursa aydın xəta; Excel olmayan fayl', async () => {
+  const buf = await excelQur(['Adı', 'Soyadı', 'İşçilərin tipi', 'İş vaxtı'], [['Əli', 'Vəliyev', 'Əsas', 'Tam']]);
+  await assert.rejects(kadrOxu(buf), (e) => e instanceof SorguXetasi && e.message.includes('Ştat vahidi'));
+  await assert.rejects(kadrOxu(Buffer.from('bu excel deyil')), (e) => e instanceof SorguXetasi && /oxunmadı/.test(e.message));
+});
+
+test('Əsas sətir və şablon', () => {
+  const s = (tip, stat, is_vaxti = 'Tam') => ({ tip, stat, is_vaxti });
+  assert.equal(esasSetir([s('Daxili əvəzçi', 0.5), s('Əsas', 1)]).tip, 'Əsas');
+  assert.equal(esasSetir([s('Müqavilə üzrə əvəzçi', 0.25), s('Müqavilə üzrə əvəzçi', 0.5)]).stat, 0.5);
+  assert.equal(sablonAcari(s('Əsas', 1)).acar, 'tam_1');
+  assert.equal(sablonAcari(s('Əsas', 0.75)).acar, 'stat_075');
+  assert.equal(sablonAcari(s('Əsas', 0.5)).acar, 'stat_05');
+  assert.equal(sablonAcari(s('Əsas', 0.25)).acar, 'stat_025');
+  assert.equal(sablonAcari(s('Əsas', 1, 'Qisaldılmış')).acar, 'qisaldilmis');
+  assert.equal(sablonAcari(s('Əsas', 1, 'Natamam')).acar, 'natamam');
+  const x = sablonAcari(s('Əsas', 0.4));
+  assert.equal(x.acar, 'tam_1');
+  assert.ok(x.xeberdarliq);
+});
+
+test('ştat mətn, vergüllü və rəqəm kimi — hamısı 0,5', async () => {
+  const buf = await excelQur(BASLIQ, [setir('A', 'B', '', 'Əsas', '0.50'), setir('C', 'D', '', 'Əsas', '0,5'), setir('E', 'F', '', 'Əsas', 0.5)]);
+  const { setirler } = await kadrOxu(buf);
+  assert.deepEqual(setirler.map((x) => sablonAcari(x).acar), ['stat_05', 'stat_05', 'stat_05']);
+});
+
+test('uyğunlaşdırma: tapıldı / ehtimal / çoxmənalı / yoxdur', async () => {
+  const db = baza([['ali', 'Ali', 'Veliyev'], ['leyla', 'Leyla', 'Hesenova'], ['r1', 'Resad', 'Celilov', 'DOSENT'],
+    ['r2', 'Resad', 'Celilov', 'BAS-MUELLIM'], ['kamran', 'Kamran', 'Quliyev', 'DOSENT', 0]]);
+  const buf = await excelQur(BASLIQ, [setir('Əli', 'Vəliyev', 'Rasim'), setir('Leyla', 'Hüsənova'), setir('Rəşad', 'Cəlilov'),
+    setir('Kamran', 'Quliyev'), setir('Nigar', 'Abbasova')]);
+  const n = await kadrYukle(db, buf, { bas: '2026-11-03', kim: 't' });
+  assert.equal(n.cemi, 5);
+  assert.equal(n.tapildi, 1);
+  assert.equal(acar(db, 'ali'), 'tam_1');
+  assert.deepEqual(n.ehtimal.map((x) => [x.sexs.soyad, x.namizedler.map((c) => c.id)]), [['Hüsənova', ['leyla']]]);
+  assert.deepEqual(n.coxmenali.map((x) => [x.sexs.soyad, x.namizedler.map((c) => c.id).sort()]), [['Cəlilov', ['r1', 'r2']]]);
+  assert.deepEqual(n.yoxdur.map((x) => x.soyad).sort(), ['Abbasova', 'Quliyev']);
+  assert.equal(acar(db, 'leyla'), 'Standart');                // ehtimal avtomatik təyin olunmur
+  assert.ok(!JSON.stringify(n).includes('ZZZ9999'));
+});
+
+test('iki Excel şəxsi bir əməkdaşa düşürsə — çoxmənalı', async () => {
+  const db = baza([['ali', 'Ali', 'Veliyev']]);
+  const buf = await excelQur(BASLIQ, [setir('Əli', 'Vəliyev', 'Rasim'), setir('Əli', 'Vəliyev', 'Kamil')]);
+  const n = await kadrYukle(db, buf, { bas: '2026-11-03', kim: 't' });
+  assert.equal(n.tapildi, 0);
+  assert.equal(n.coxmenali.length, 2);
+  assert.equal(acar(db, 'ali'), 'Standart');
+});
+
+test('işdən çıxma tarixi keçibsə atılır', async () => {
+  const db = baza([['ali', 'Ali', 'Veliyev']]);
+  const buf = await excelQur(BASLIQ, [setir('Əli', 'Vəliyev', '', 'Əsas', '1', 'Tam', '01.10.2026')]);
+  const n = await kadrYukle(db, buf, { bas: '2026-11-03', kim: 't' });
+  assert.equal(n.isdenCixib, 1);
+  assert.deepEqual([n.tapildi, n.ehtimal.length, n.coxmenali.length, n.yoxdur.length], [0, 0, 0, 0]);
+});
+
+test('yenidən yükləmə: əl ilə dəyişən qorunur, Excel mənbəli yenilənir, eyni şablon yazılmır', async () => {
+  const db = baza([['ali', 'Ali', 'Veliyev'], ['leyla', 'Leyla', 'Hesenova']]);
+  const bir = await excelQur(BASLIQ, [setir('Əli', 'Vəliyev'), setir('Leyla', 'Həsənova')]);
+  assert.equal((await kadrYukle(db, bir, { bas: '2026-10-01', kim: 't' })).yazildi, 2);
+  qrafikYaz(db, { emekdasId: 'ali', bas: '2026-10-15', baslama: '10:00', bitme: '15:00', menbe: 'el', kim: 't' });
+  const iki = await excelQur(BASLIQ, [setir('Əli', 'Vəliyev', '', 'Əsas', '0.5'), setir('Leyla', 'Həsənova', '', 'Əsas', '0.5')]);
+  const n2 = await kadrYukle(db, iki, { bas: '2026-11-01', kim: 't' });
+  assert.deepEqual([n2.qorundu, n2.yazildi], [1, 1]);
+  assert.equal(acar(db, 'ali'), 'Fərdi');
+  assert.equal(acar(db, 'leyla'), 'stat_05');
+  assert.equal(acar(db, 'leyla', '2026-10-20'), 'tam_1');        // köhnə gün köhnə şablonla
+  const n3 = await kadrYukle(db, iki, { bas: '2026-11-03', kim: 't' });
+  assert.deepEqual([n3.deyismedi, n3.qorundu, n3.yazildi], [1, 1, 0]);
+});
+
+test('kadr_melumati: Əsas sətir sira 0, əvəzçilik sira 1', async () => {
+  const db = baza([['ali', 'Ali', 'Veliyev']]);
+  const buf = await excelQur(BASLIQ, [setir('Əli', 'Vəliyev', 'Rasim', 'Daxili əvəzçi', '0.50'), setir('Əli', 'Vəliyev', 'Rasim', 'Əsas', '1')]);
+  await kadrYukle(db, buf, { bas: '2026-11-03', kim: 't' });
+  const k = db.prepare('SELECT sira, tip, stat FROM kadr_melumati WHERE emekdas_id = ? ORDER BY sira').all('ali').map((x) => ({ ...x }));
+  assert.deepEqual(k, [{ sira: 0, tip: 'Əsas', stat: 1 }, { sira: 1, tip: 'Daxili əvəzçi', stat: 0.5 }]);
+  assert.equal(acar(db, 'ali'), 'tam_1');
+});
