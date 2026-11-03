@@ -8,6 +8,7 @@ import { AZ, SorguXetasi, araliq, emekdasSec, gunSetri, hesabatQur, qrafikQisa }
 import { ipNormal } from './ingest.js';
 import { qrafikTap, qrafikXeritesi } from './qrafik.js';
 import { qrafikRouter } from './qrafikApi.js';
+import { emekdasRouter } from './emekdasApi.js';
 
 export const KUKI = 'aztu_hr';
 const KATEQORIYA = new Set(['emekdas', 'telebe', 'taninmayan', 'diger']);
@@ -263,6 +264,7 @@ export function apiRouter(db, k, log = console) {
     }).send(Buffer.from(buf));
   }));
 
+  r.use(emekdasRouter(db, k, log));
   r.use(qrafikRouter(db, k, log));
 
   r.use((err, req, res, next) => {

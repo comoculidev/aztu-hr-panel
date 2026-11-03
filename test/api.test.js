@@ -390,3 +390,68 @@ test('sinxron: HR düzəlişi, silinmə və əl ilə kadr qorunur', async () => 
     db.prepare("DELETE FROM emekdaslar WHERE id IN ('k1', 'k2', 'k3', 'el-000000000001')").run();
   }
 });
+
+test('kadr idarəsi API: əlavə, redaktə, silmə, link, şəkil', async () => {
+  const kuki = await giris();
+  const stat05 = (await sorgu('/api/qrafik/sablonlar', { kuki })).json.find((s) => s.acar === 'stat_05').id;
+  let id;
+  try {
+    // əlavə: sessiya və CSRF başlığı tələb olunur
+    assert.equal((await sorgu('/api/emekdaslar', { metod: 'POST', govde: { ad: 'Tural', soyad: 'Nəbiyev' } })).status, 401);
+    assert.equal((await sorgu('/api/emekdaslar', { metod: 'POST', govde: { ad: 'Tural', soyad: 'Nəbiyev' }, kuki })).status, 403);
+    assert.equal((await yaz('/api/emekdaslar', { soyad: 'Nəbiyev' }, kuki)).status, 400);
+    assert.equal((await yaz('/api/emekdaslar', { ad: 'Tural', soyad: 'Nəbiyev', sablon_id: 9999 }, kuki)).status, 400);
+    const r = await yaz('/api/emekdaslar', { ad: 'Tural', soyad: 'Nəbiyev', vezife: 'Laborant', sablon_id: stat05 }, kuki);
+    assert.equal(r.status, 201);
+    id = r.json.id;
+    assert.match(id, /^el-[0-9a-f]{12}$/);
+    assert.equal((await sorgu(`/api/emekdaslar/${id}/qrafik`, { kuki })).json.indiki.ad, 'Tam, 0,5 ştat');
+
+    // redaktə
+    assert.equal((await yaz(`/api/emekdaslar/${id}`, { ad: 'Tural', soyad: 'Nəbiyev2' }, kuki, 'PUT')).status, 200);
+    const tapilan = (await sorgu('/api/emekdaslar?q=nebiyev2', { kuki })).json;
+    assert.deepEqual(tapilan.map((e) => [e.id, e.hr_duzelib]), [[id, 1]]);
+    assert.equal((await yaz('/api/emekdaslar/yoxdur', { ad: 'A', soyad: 'B' }, kuki, 'PUT')).status, 404);
+    assert.equal((await yaz(`/api/emekdaslar/${id}`, { ad: '', soyad: 'B' }, kuki, 'PUT')).status, 400);
+
+    // link və QR
+    const l = await yaz(`/api/emekdaslar/${id}/sekil-link`, {}, kuki);
+    assert.equal(l.status, 200);
+    assert.match(l.json.url, /\/sekil\/[A-Za-z0-9_-]{43}$/);
+    assert.ok(l.json.url.startsWith(url));
+    assert.match(l.json.qr, /^data:image\/svg\+xml;base64,/);
+    assert.match(Buffer.from(l.json.qr.split(',')[1], 'base64').toString(), /<svg/);
+    assert.equal(l.json.yerli, true);
+    assert.ok(l.json.bitir > Date.now());
+    const v = (await sorgu(`/api/emekdaslar/${id}/sekil-link`, { kuki })).json;
+    assert.deepEqual([v.aciq, v.istifade], [true, null]);
+    assert.equal((await yaz('/api/emekdaslar/yoxdur/sekil-link', {}, kuki)).status, 404);
+
+    // kompüterdən şəkil
+    const sekil = (govde, tip = 'image/jpeg') => fetch(`${url}/api/emekdaslar/${id}/sekil`, { method: 'POST',
+      headers: { Cookie: kuki, 'X-Aztu': '1', 'Content-Type': tip }, body: govde });
+    const jpeg = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(300, 5)]);
+    assert.equal((await sekil(jpeg)).status, 200);
+    const c = await fetch(`${url}/api/emekdaslar/${id}/sekil`, { headers: { Cookie: kuki } });
+    assert.deepEqual(Buffer.from(await c.arrayBuffer()), jpeg);
+    const png = await sekil(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0, 0, 0, 0]));
+    assert.equal(png.status, 400);
+    assert.match((await png.json()).xeta, /JPEG/);
+    assert.equal((await sekil(Buffer.alloc(6 * 1024 * 1024, 0xff))).status, 413);
+
+    // silmə: siyahıdan çıxır, kart qalır (aktiv 0), sonrakı redaktə və link 404
+    assert.equal((await yaz(`/api/emekdaslar/${id}`, {}, kuki, 'DELETE')).status, 200);
+    assert.ok(!(await sorgu('/api/emekdaslar', { kuki })).json.some((e) => e.id === id));
+    const kart = await sorgu(`/api/emekdaslar/${id}`, { kuki });
+    assert.deepEqual([kart.status, kart.json.aktiv], [200, 0]);
+    assert.equal((await yaz(`/api/emekdaslar/${id}`, { ad: 'A', soyad: 'B' }, kuki, 'PUT')).status, 404);
+    assert.equal((await yaz(`/api/emekdaslar/${id}/sekil-link`, {}, kuki)).status, 404);
+    assert.equal((await yaz(`/api/emekdaslar/${id}`, {}, kuki, 'DELETE')).status, 404);
+  } finally {
+    if (id) {
+      db.prepare('DELETE FROM sekil_linkleri WHERE emekdas_id = ?').run(id);
+      db.prepare('DELETE FROM emekdas_qrafik WHERE emekdas_id = ?').run(id);
+      db.prepare('DELETE FROM emekdaslar WHERE id = ?').run(id);
+    }
+  }
+});

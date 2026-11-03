@@ -27,6 +27,8 @@ export function konfiqOxu(env = process.env) {
     // HTTPS arxasındadırsa (nginx) — true: kuki yalnız şifrəli bağlantıda göndərilir
     tehlukesizKuki: env.TEHLUKESIZ_KUKI === 'true',
     proxyEtibar: env.PROXY_ETIBAR === 'true',
+    // telefon şəkil linkinin ünvanı (QR); boşdursa HR paneli hansı ünvanla açıbsa o
+    panelUrl: (env.PANEL_URL || '').trim().replace(/\/+$/, ''),
   };
   if (k.ingestAcar && k.ingestAcar.length < 24) {
     throw new Error('INGEST_ACAR ən azı 24 simvol olmalıdır (yaratmaq: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'base64url\'))")');
