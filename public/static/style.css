@@ -509,3 +509,23 @@ dialog.forma-pencere td .alt { display: block; font-size: 12px; color: var(--ink
 .qrafik-indi .deyer { font-size: 22px; font-weight: 700; }
 #q-blok h3 { margin: 16px 0 6px; font-size: 14px; }
 @media (max-width: 600px) { .forma label { flex: 1 1 100%; } dialog.forma-pencere td select { max-width: 200px; } }
+
+/* ---------------------------------------------------------------- telefondan kadr şəkli (/sekil/<token>) */
+.sekil-sehife { min-height: 100vh; display: grid; align-content: start; justify-items: center; gap: 18px; padding: 24px 16px 40px; background: var(--bg); }
+.sekil-sehife .marka { color: var(--ink); padding: 0; }
+.sekil-sehife .marka small { color: var(--ink-3); }
+.sekil-kart { width: 100%; max-width: 420px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow); padding: 22px 20px; }
+.sekil-kart h1 { font-size: 20px; margin: 0 0 6px; letter-spacing: -.2px; overflow-wrap: anywhere; }
+.sekil-kart .alt-metn { display: block; margin: 0 0 16px; font-size: 13.5px; }
+.sekil-onizleme { aspect-ratio: 3 / 4; width: 100%; border-radius: var(--r); background: var(--surface-3); border: 1px dashed var(--line-2); display: grid; place-items: center; overflow: hidden; margin-bottom: 16px; color: var(--ink-3); }
+.sekil-onizleme svg { width: 38%; height: auto; opacity: .55; }
+.sekil-onizleme.dolu { border-style: solid; }
+.sekil-onizleme img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.dugme.genis { width: 100%; min-height: 48px; font-size: 15px; margin-top: 10px; }
+.dugme.genis svg { width: 20px; height: 20px; }
+.sekil-kart .xeta-qutu { margin: 14px 0 0; }
+.netice { text-align: center; padding: 12px 0; }
+.netice-isare { width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; margin: 0 auto 16px; }
+.netice-isare svg { width: 32px; height: 32px; }
+.netice-isare.ok { background: var(--ok-soft); color: var(--ok); }
+.netice-isare.xeta { background: var(--bad-soft); color: var(--bad); }

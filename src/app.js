@@ -4,6 +4,7 @@ import express from 'express';
 import { kukiOxu, sessiyaTap } from './auth.js';
 import { KUKI, apiRouter } from './api.js';
 import { ingestRouter } from './ingest.js';
+import { sekilRouter } from './sekilApi.js';
 import { KOK } from './konfiq.js';
 
 const PUBLIC = path.join(KOK, 'public');
@@ -25,6 +26,8 @@ export function appQur(db, k, log = console) {
   });
 
   app.use('/api/v1/ingest', ingestRouter(db, k, log));
+  // telefondan kadr şəkli — girişsiz (token ilə), ona görə sessiya tələb edən /api-dən əvvəl
+  app.use('/api/v1/sekil', sekilRouter(db, log));
   app.use('/api', apiRouter(db, k, log));
 
   const girib = (req) => Boolean(sessiyaTap(db, kukiOxu(req, KUKI)));
@@ -35,6 +38,9 @@ export function appQur(db, k, log = console) {
   app.get('/giris', (req, res) => {
     if (girib(req)) return res.redirect(302, '/');
     res.set('Cache-Control', 'no-store').sendFile(path.join(PUBLIC, 'giris.html'));
+  });
+  app.get('/sekil/:token', (req, res) => {
+    res.set('Cache-Control', 'no-store').sendFile(path.join(PUBLIC, 'sekil.html'));
   });
   // yalnız JS, CSS, ikonlar (məlumat yoxdur); index.html birbaşa verilmir
   // no-cache: brauzer hər dəfə ETag ilə yoxlayır (dəyişməyibsə 304) — yeni versiya qoyulanda köhnə JS/CSS qalmasın

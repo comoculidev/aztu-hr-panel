@@ -455,3 +455,48 @@ test('kadr idarəsi API: əlavə, redaktə, silmə, link, şəkil', async () => 
     }
   }
 });
+
+test('telefon şəkil linki: girişsiz, bir dəfəlik', async () => {
+  const kuki = await giris();
+  const id = (await yaz('/api/emekdaslar', { ad: 'Səbinə', soyad: 'Qasımlı', vezife: 'Mühəndis' }, kuki)).json.id;
+  const linkAl = async () => (await yaz(`/api/emekdaslar/${id}/sekil-link`, {}, kuki)).json.url.split('/sekil/')[1];
+  const jpeg = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(400, 2)]);
+  const gonder = (token, govde, tip = 'image/jpeg') => fetch(`${url}/api/v1/sekil/${token}`, { method: 'POST',
+    headers: { 'Content-Type': tip }, body: govde });
+  try {
+    const token = await linkAl();
+    const sehife = await fetch(`${url}/sekil/${token}`);
+    assert.equal(sehife.status, 200);
+    assert.match(sehife.headers.get('content-type'), /html/);
+    assert.equal(sehife.headers.get('cache-control'), 'no-store');
+    const info = await sorgu(`/api/v1/sekil/${token}`);                    // kukisiz
+    assert.equal(info.status, 200);
+    assert.deepEqual(info.json, { ad: 'Səbinə', soyad: 'Qasımlı' });         // başqa sahə yoxdur
+
+    assert.equal((await gonder(token, jpeg)).status, 200);
+    const v = (await sorgu(`/api/emekdaslar/${id}/sekil-link`, { kuki })).json;
+    assert.equal(v.aciq, false);
+    assert.ok(v.istifade);
+    const c = await fetch(`${url}/api/emekdaslar/${id}/sekil`, { headers: { Cookie: kuki } });
+    assert.deepEqual(Buffer.from(await c.arrayBuffer()), jpeg);
+    const tekrar = await gonder(token, jpeg);
+    assert.equal(tekrar.status, 410);
+    assert.match((await tekrar.json()).xeta, /istifadə olunub/);
+    assert.equal((await sorgu(`/api/v1/sekil/${token}`)).status, 410);
+
+    const yeni = await linkAl();
+    const png = await gonder(yeni, Buffer.from([0x89, 0x50, 0x4e, 0x47, 0, 0, 0, 0]));
+    assert.equal(png.status, 400);
+    assert.ok([400, 415].includes((await gonder(yeni, jpeg, 'text/plain')).status));
+    assert.equal((await gonder(yeni, Buffer.alloc(6 * 1024 * 1024, 0xff))).status, 413);
+    assert.equal((await sorgu('/api/v1/sekil/yoxdur-token')).status, 404);
+    assert.equal((await gonder('yoxdur-token', jpeg)).status, 404);
+
+    await yaz(`/api/emekdaslar/${id}`, {}, kuki, 'DELETE');
+    assert.equal((await sorgu(`/api/v1/sekil/${yeni}`)).status, 410);
+    assert.equal((await gonder(yeni, jpeg)).status, 410);
+  } finally {
+    db.prepare('DELETE FROM sekil_linkleri WHERE emekdas_id = ?').run(id);
+    db.prepare('DELETE FROM emekdaslar WHERE id = ?').run(id);
+  }
+});
