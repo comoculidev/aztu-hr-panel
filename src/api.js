@@ -4,8 +4,9 @@ import { GirisLimiti, kukiOxu, parolYoxla, sessiyaAc, sessiyaBagla, sessiyaTap }
 import { buGun, indiYaz } from './db.js';
 import { excelYaz } from './excel.js';
 import { isGunudur } from './davamiyyet.js';
-import { AZ, SorguXetasi, araliq, emekdasSec, gunSetri, hesabatQur } from './hesabat.js';
+import { AZ, SorguXetasi, araliq, emekdasSec, gunSetri, hesabatQur, qrafikQisa } from './hesabat.js';
 import { ipNormal } from './ingest.js';
+import { qrafikTap, qrafikXeritesi } from './qrafik.js';
 
 export const KUKI = 'aztu_hr';
 const KATEQORIYA = new Set(['emekdas', 'telebe', 'taninmayan', 'diger']);
@@ -88,14 +89,16 @@ export function apiRouter(db, k, log = console) {
       // "Bu gün diqqət" paneli üçün adlar da: kim binadadır, kim gecikib, kim hələ gəlməyib (iş günü)
       const siyahi = { binada: [], geciken: [], gelmeyen: [] };
       const isGunu = isGunudur(bugun);
-      for (const e of emekdasSec(db)) {
+      const aktivler = emekdasSec(db);
+      const qrafik = qrafikXeritesi(db, k, aktivler.map((e) => e.id), bugun, bugun);
+      for (const e of aktivler) {
         const qisa = { id: e.id, ad: e.ad, soyad: e.soyad, sobe: e.sobe, vezife: e.vezife, sekil_var: e.sekil_var };
         const hadiseler = gunler.get(e.id);
         if (!hadiseler) {
           if (isGunu) siyahi.gelmeyen.push(qisa);
           continue;
         }
-        const g = gunSetri(bugun, hadiseler, k, bugun);
+        const g = gunSetri(bugun, hadiseler, qrafik(e.id, bugun), bugun);
         const x = { ...qisa, gelis: g.gelis, cixis: g.cixis, gecikmeSan: g.gecikmeSan, olmamaSan: g.olmamaSan };
         if (g.binadadir) siyahi.binada.push(x);
         if (g.gecikmeSan > 0) siyahi.geciken.push(x);
@@ -195,11 +198,13 @@ export function apiRouter(db, k, log = console) {
       if (!gunler.has(h.emekdas_id)) gunler.set(h.emekdas_id, []);
       gunler.get(h.emekdas_id).push(h);
     }
+    const qrafik = qrafikXeritesi(db, k, siyahi.map((e) => e.id), bugun, bugun);
     res.json(siyahi.map((e) => {
+      const q = qrafik(e.id, bugun);
       const hadiseler = gunler.get(e.id);
-      if (!hadiseler) return { ...e, bugun: null };
-      const g = gunSetri(bugun, hadiseler, k, bugun);
-      return { ...e, bugun: { gelis: g.gelis, cixis: g.cixis, binadadir: g.binadadir, gecikmeSan: g.gecikmeSan,
+      if (!hadiseler) return { ...e, qrafik: qrafikQisa(q), bugun: null };
+      const g = gunSetri(bugun, hadiseler, q, bugun);
+      return { ...e, qrafik: g.qrafik, bugun: { gelis: g.gelis, cixis: g.cixis, binadadir: g.binadadir, gecikmeSan: g.gecikmeSan,
         olmamaSan: g.olmamaSan } };
     }));
   });
@@ -210,7 +215,7 @@ export function apiRouter(db, k, log = console) {
     const bugun = buGun();
     const hadiseler = db.prepare(`SELECT saat, istiqamet, kamera FROM hadiseler
       WHERE emekdas_id = ? AND tarix = ? ORDER BY saat`).all(e.id, bugun);
-    res.json({ ...e, bugun: { ...gunSetri(bugun, hadiseler, k, bugun), hadiseler } });
+    res.json({ ...e, bugun: { ...gunSetri(bugun, hadiseler, qrafikTap(db, k, e.id, bugun), bugun), hadiseler } });
   });
 
   r.get('/emekdaslar/:id/sekil', (req, res) => {

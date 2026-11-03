@@ -3,6 +3,7 @@
 import { sozler } from './axtaris.js';
 import { buGun, indiYaz } from './db.js';
 import { gunHesabla, gunler, isGunudur, saatYaz, saniye } from './davamiyyet.js';
+import { qrafikXeritesi } from './qrafik.js';
 
 const TARIX = /^\d{4}-\d{2}-\d{2}$/;
 export const HEFTE = ['Bazar', 'Bazar ertəsi', 'Çərşənbə axşamı', 'Çərşənbə', 'Cümə axşamı', 'Cümə', 'Şənbə'];
@@ -59,13 +60,18 @@ export function hadiseXeritesi(db, ids, bas, son) {
   return x;
 }
 
-/** Bir əməkdaşın bir günü: gəliş, çıxış, işdə olma/olmama, gecikmə və vəziyyət */
-export function gunSetri(tarix, hadiseler, k, bugun = buGun(), indiSaat = indiYaz().slice(11)) {
-  const g = gunHesabla(hadiseler, { isBaslama: k.isBaslama, isBitme: k.isBitme, indi: tarix === bugun ? indiSaat : null });
+/**
+ * Bir əməkdaşın bir günü: gəliş, çıxış, işdə olma/olmama, gecikmə və vəziyyət.
+ * q — əməkdaşın həmin günkü qrafiki {isBaslama, isBitme, ad} (qrafik.js); .env konfiqi də bu formadadır.
+ */
+export function gunSetri(tarix, hadiseler, q, bugun = buGun(), indiSaat = indiYaz().slice(11)) {
+  const g = gunHesabla(hadiseler, { isBaslama: q.isBaslama, isBitme: q.isBitme, indi: tarix === bugun ? indiSaat : null });
   let veziyyet = 'geldi';
   if (!hadiseler.length) veziyyet = isGunudur(tarix) ? (tarix === bugun ? 'gozlenilir' : 'gelmeyib') : 'istirahet';
-  return { tarix, hefte: hefteGunu(tarix), veziyyet, ...g };
+  return { tarix, hefte: hefteGunu(tarix), veziyyet, ...g, qrafik: qrafikQisa(q) };
 }
+
+export const qrafikQisa = (q) => ({ ad: q.ad ?? 'Standart', baslama: q.isBaslama, bitme: q.isBitme });
 
 /**
  * Əməkdaşlar × günlər. Hadisəsi olmayan iş günü "gəlməyib" sətri olur (əməkdaş sistemə düşəndən sonrakı keçmiş
@@ -74,7 +80,9 @@ export function gunSetri(tarix, hadiseler, k, bugun = buGun(), indiSaat = indiYa
 export function hesabatQur(db, k, emekdaslar, bas, son) {
   const bugun = buGun();
   const indiSaat = indiYaz().slice(11);
-  const xerite = hadiseXeritesi(db, emekdaslar.map((e) => e.id), bas, son);
+  const ids = emekdaslar.map((e) => e.id);
+  const xerite = hadiseXeritesi(db, ids, bas, son);
+  const qrafik = qrafikXeritesi(db, k, ids, bas, son);
   const setirler = [];
   const xulase = [];
   const butunGunler = gunler(bas, son);
@@ -87,13 +95,13 @@ export function hesabatQur(db, k, emekdaslar, bas, son) {
     const x = {
       id: e.id, ad: e.ad, soyad: e.soyad, ata: e.ata, sobe: e.sobe, vezife: e.vezife, aktiv: e.aktiv,
       gelenGun: 0, gelmeyenGun: 0, isdeSan: 0, olmamaSan: 0, gecikmeSayi: 0, gecikmeSan: 0, natamamGun: 0,
-      ortaGelis: null,
+      ortaGelis: null, qrafik: qrafikQisa(qrafik(e.id, son)),
     };
     let gelisCem = 0;
     for (const tarix of butunGunler) {
       const hadiseler = gunX.get(tarix) ?? [];
       if (!hadiseler.length && (!isGunudur(tarix) || tarix > bugun || tarix < ilkGun)) continue;
-      const s = gunSetri(tarix, hadiseler, k, bugun, indiSaat);
+      const s = gunSetri(tarix, hadiseler, qrafik(e.id, tarix), bugun, indiSaat);
       if (s.veziyyet === 'gozlenilir') continue;    // bu gün, hələ gəlməyib — "gəlməyib" demək tezdir
       setirler.push({ emekdas: e.id, ad: e.ad, soyad: e.soyad, ata: e.ata, sobe: e.sobe, vezife: e.vezife, ...s });
       if (s.veziyyet === 'gelmeyib') { x.gelmeyenGun += 1; continue; }

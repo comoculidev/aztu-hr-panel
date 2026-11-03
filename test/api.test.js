@@ -180,10 +180,34 @@ test('Excel: ekrandakı süzgəclə', async () => {
   assert.deepEqual(wb.worksheets.map((w) => w.name), ['Xülasə', 'Gündəlik', 'Parametrlər']);
   assert.equal(wb.getWorksheet('Xülasə').getRow(2).getCell(1).value, 'Vəliyev');
   const g = wb.getWorksheet('Gündəlik');
-  assert.equal(g.getRow(2).getCell(9).value, '08:55:00');
   const basliq = g.getRow(1).values.slice(1);
+  assert.equal(g.getRow(2).getCell(basliq.indexOf('Gəliş') + 1).value, '08:55:00');
   assert.ok(basliq.includes('Kənarda (cəmi)') && basliq.includes('Kənarda olduğu vaxtlar'));
   assert.equal(g.getRow(2).getCell(basliq.indexOf('Kənarda (cəmi)') + 1).value, '0 dəq');
+});
+
+test('bu gün diqqət: gecikmə fərdi saata görə; kart və Excel qrafiki göstərir', async () => {
+  const { qrafikYaz } = await import('../src/qrafik.js');
+  const kuki = await giris();
+  // Standart 09:00 — 08:55 gecikmə deyil; fərdi 08:00–15:00 ilə 55 dəq gecikmədir
+  qrafikYaz(db, { emekdasId: ALI, bas: buGun(), baslama: '08:00', bitme: '15:00', menbe: 'el', kim: 't' });
+  try {
+    const u = (await sorgu('/api/umumi', { kuki })).json;
+    assert.deepEqual(u.bugun.siyahi.geciken.map((e) => [e.soyad, e.gecikmeSan]), [['Vəliyev', 3300]]);
+    const kart = (await sorgu(`/api/emekdaslar/${encodeURIComponent(ALI)}`, { kuki })).json;
+    assert.deepEqual(kart.bugun.qrafik, { ad: 'Fərdi', baslama: '08:00', bitme: '15:00' });
+    const siyahi = (await sorgu('/api/emekdaslar', { kuki })).json;
+    assert.equal(siyahi.find((e) => e.id === ALI).bugun.gecikmeSan, 3300);
+    const c = await fetch(`${url}/api/hesabat/excel?emekdas=${encodeURIComponent(ALI)}`, { headers: { Cookie: kuki } });
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(Buffer.from(await c.arrayBuffer()));
+    const g = wb.getWorksheet('Gündəlik');
+    assert.equal(g.getRow(2).getCell(g.getRow(1).values.indexOf('Qrafik')).value, '08:00–15:00');
+    const x = wb.getWorksheet('Xülasə');
+    assert.equal(x.getRow(2).getCell(x.getRow(1).values.indexOf('Qrafik')).value, 'Fərdi (08:00–15:00)');
+  } finally {
+    db.prepare('DELETE FROM emekdas_qrafik').run();
+  }
 });
 
 test('çıxış: CSRF başlığı olmadan rədd, sonra sessiya bağlanır', async () => {

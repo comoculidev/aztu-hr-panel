@@ -32,3 +32,21 @@ test('siyahı Azərbaycan əlifbası ilə: Ə, İ, Ş öz yerində', () => {
     ['4', 'Aysel', 'Həsənova'], ['5', 'Rəşad', 'Şirinov'], ['6', 'Orxan', 'Zeynalov']]);
   assert.deepEqual(emekdasSec(db).map((e) => e.soyad), ['Babayev', 'Əliyeva', 'Həsənova', 'İsmayılova', 'Şirinov', 'Zeynalov']);
 });
+
+test('gecikmə və erkən çıxış əməkdaşın öz qrafikinə görə, dəyişiklikdən əvvəlki gün köhnə ilə', async () => {
+  const { qrafikYaz } = await import('../src/qrafik.js');
+  const db = baza([['a', 'Əli', 'Vəliyev']]);
+  const sid = db.prepare("SELECT id FROM qrafik_sablonlari WHERE acar = 'stat_05'").get().id;
+  qrafikYaz(db, { emekdasId: 'a', bas: '2026-10-28', sablonId: sid, menbe: 'excel', kim: 't' });
+  const h = db.prepare(`INSERT INTO hadiseler (id, tarix, saat, kamera, istiqamet, kateqoriya, emekdas_id, alindi)
+                        VALUES (?, ?, ?, 'T1', ?, 'emekdas', 'a', '')`);
+  h.run('1', '2026-10-27', '09:30:00', 'giris');
+  h.run('2', '2026-10-27', '17:00:00', 'cixis');
+  h.run('3', '2026-10-28', '09:30:00', 'giris');
+  h.run('4', '2026-10-28', '12:00:00', 'cixis');
+  const { setirler, xulase } = hesabatQur(db, k, emekdasSec(db), '2026-10-27', '2026-10-28');
+  const [s27, s28] = setirler;
+  assert.deepEqual([s27.gecikmeSan, s27.erkenCixisSan, s27.qrafik.ad], [1800, 3600, 'Standart']);
+  assert.deepEqual([s28.gecikmeSan, s28.erkenCixisSan, s28.qrafik.ad, s28.qrafik.bitme], [1800, 3600, 'Tam, 0,5 ştat', '13:00']);
+  assert.deepEqual(xulase[0].qrafik, { ad: 'Tam, 0,5 ştat', baslama: '09:00', bitme: '13:00' });
+});

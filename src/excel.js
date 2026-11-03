@@ -6,6 +6,8 @@ import { HEFTE } from './hesabat.js';
 
 const VAXT = '[h]:mm';
 const gun = (san) => (san === null || san === undefined ? null : san / 86400);
+// "09:00–17:30"; uzun: "Tam, 1 ştat (09:00–17:30)"
+const qrafikYaz = (q, uzun = false) => (q ? (uzun ? `${q.ad} (${q.baslama}–${q.bitme})` : `${q.baslama}–${q.bitme}`) : '');
 const VEZIYYET = { geldi: 'Gəlib', gelmeyib: 'Gəlməyib', istirahet: 'İstirahət günü' };
 
 function basliqStil(ws) {
@@ -27,7 +29,8 @@ export async function excelYaz({ setirler, xulase }, { bas, son, filtr, istifade
   x.columns = [
     { header: 'Soyad', key: 'soyad', width: 18 }, { header: 'Ad', key: 'ad', width: 14 },
     { header: 'Ata adı', key: 'ata', width: 14 }, { header: 'Şöbə', key: 'sobe', width: 28 },
-    { header: 'Vəzifə', key: 'vezife', width: 20 }, { header: 'Gəldiyi gün', key: 'gelenGun', width: 10 },
+    { header: 'Vəzifə', key: 'vezife', width: 20 }, { header: 'Qrafik', key: 'qrafik', width: 22 },
+    { header: 'Gəldiyi gün', key: 'gelenGun', width: 10 },
     { header: 'Gəlmədiyi iş günü', key: 'gelmeyenGun', width: 11 },
     { header: 'Cəmi işdə', key: 'isde', width: 11, style: { numFmt: VAXT } },
     { header: 'Cəmi işdə olmama', key: 'olmama', width: 12, style: { numFmt: VAXT } },
@@ -38,7 +41,7 @@ export async function excelYaz({ setirler, xulase }, { bas, son, filtr, istifade
     { header: 'Natamam gün (giriş/çıxış görünməyib)', key: 'natamamGun', width: 16 },
   ];
   for (const e of xulase) {
-    x.addRow({ ...e, isde: gun(e.isdeSan), olmama: gun(e.olmamaSan), olmamaSoz: muddetSoz(e.olmamaSan), gecikme: gun(e.gecikmeSan), ortaGelis: e.ortaGelis ?? '—' });
+    x.addRow({ ...e, qrafik: qrafikYaz(e.qrafik, true), isde: gun(e.isdeSan), olmama: gun(e.olmamaSan), olmamaSoz: muddetSoz(e.olmamaSan), gecikme: gun(e.gecikmeSan), ortaGelis: e.ortaGelis ?? '—' });
   }
   basliqStil(x);
 
@@ -47,7 +50,8 @@ export async function excelYaz({ setirler, xulase }, { bas, son, filtr, istifade
     { header: 'Tarix', key: 'tarix', width: 11 }, { header: 'Həftə günü', key: 'hefte', width: 15 },
     { header: 'Soyad', key: 'soyad', width: 18 }, { header: 'Ad', key: 'ad', width: 14 },
     { header: 'Ata adı', key: 'ata', width: 14 }, { header: 'Şöbə', key: 'sobe', width: 28 },
-    { header: 'Vəzifə', key: 'vezife', width: 20 }, { header: 'Vəziyyət', key: 'veziyyet', width: 12 },
+    { header: 'Vəzifə', key: 'vezife', width: 20 }, { header: 'Qrafik', key: 'qrafik', width: 13 },
+    { header: 'Vəziyyət', key: 'veziyyet', width: 12 },
     { header: 'Gəliş', key: 'gelis', width: 9 }, { header: 'Çıxış', key: 'cixis', width: 9 },
     { header: 'İşdə olma', key: 'isde', width: 10, style: { numFmt: VAXT } },
     { header: 'İşdə olmama', key: 'olmama', width: 11, style: { numFmt: VAXT } },
@@ -60,7 +64,7 @@ export async function excelYaz({ setirler, xulase }, { bas, son, filtr, istifade
   for (const s of setirler) {
     const geldi = s.veziyyet === 'geldi';
     const r = g.addRow({
-      ...s, veziyyet: VEZIYYET[s.veziyyet] ?? s.veziyyet, gelis: s.gelis ?? '', cixis: s.cixis ?? '',
+      ...s, qrafik: qrafikYaz(s.qrafik), veziyyet: VEZIYYET[s.veziyyet] ?? s.veziyyet, gelis: s.gelis ?? '', cixis: s.cixis ?? '',
       isde: geldi ? gun(s.isdeSan) : null, olmama: geldi ? gun(s.olmamaSan) : null,
       olmamaSoz: geldi ? muddetSoz(s.olmamaSan) : '', bosluqlar: (s.bosluqlar ?? []).map(bosluqYaz).join('; '),
       gecikme: geldi && s.gecikmeSan ? gun(s.gecikmeSan) : null, erken: geldi && s.erkenCixisSan ? gun(s.erkenCixisSan) : null,
@@ -76,7 +80,7 @@ export async function excelYaz({ setirler, xulase }, { bas, son, filtr, istifade
     { a: 'Müddət', b: bas === son ? bas : `${bas} — ${son}` },
     { a: 'Süzgəc', b: filtr || 'hamısı' },
     { a: 'Əməkdaş sayı', b: xulase.length },
-    { a: 'İş qrafiki', b: `${k.isBaslama} — ${k.isBitme}, bazar ertəsi — cümə` },
+    { a: 'İş qrafiki', b: `hər əməkdaşın öz qrafiki ("Qrafik" sütunu); təyin olunmayanlar: ${k.isBaslama} — ${k.isBitme}; bazar ertəsi — cümə` },
     { a: 'Qayda', b: 'Gəliş = günün ilk girişi; çıxış = günün son çıxışı; gün içində çıxıb-qayıtma = işdə olmama.' },
     { a: 'Həftə günləri', b: HEFTE.join(', ') },
     { a: 'Hazırladı', b: `${istifadeci}, ${new Date().toLocaleString('az-AZ', { timeZone: 'Asia/Baku' })}` },
