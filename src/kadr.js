@@ -6,7 +6,8 @@ import { SorguXetasi } from './hesabat.js';
 import { qrafikTap, qrafikYaz } from './qrafik.js';
 
 const MAKS_SETIR = 20_000;
-const basliqNormal = (s) => String(s ?? '').trim().replace(/\s+/g, ' ').toLocaleLowerCase('az');
+// başlıqlar qatla() ilə tutuşdurulur: latın klaviaturasında yazılan "I" (Işçi qrup) və böyük hərflər də tanınsın
+const basliqNormal = (s) => qatla(s);
 // açar → Excel başlığı; məcburi olanlar olmasa yükləmə rədd edilir
 const SUTUNLAR = {
   ad: ['Adı', true], soyad: ['Soyadı', true], ata: ['Atasının adı', false], muessise: ['Müəssisənin adı', false],
@@ -172,11 +173,14 @@ export function uygunlasdir(db, setirler, bas) {
 /**
  * Bir əməkdaşa Excel-dən qrafik: həmin tarixdə əl ilə qoyulmuş qrafik varsa toxunulmur (HR-in qərarı üstündür);
  * eyni şablondursa yazılmır (tarixçə boş sətirlərlə dolmasın). Kadr məlumatı həmişə yenilənir.
+ * Bu tarixdən sonrakı Excel qrafikləri silinir: yeni yükləmə köhnəsini əvəz edir (məs. tarix səhv seçilib yenidən
+ * daha erkən tarixlə yüklənəndə), əks halda köhnə yükləmə sonrakı günlərdə qüvvədə qalardı. Əl ilə qoyulanlar qalır.
  */
 export function kadrTetbiqEt(db, { emekdasId, setirler, bas, kim }) {
   const esas = esasSetir(setirler);
   const { acar } = sablonAcari(esas);
   const sablonId = db.prepare('SELECT id FROM qrafik_sablonlari WHERE acar = ?').get(acar).id;
+  db.prepare("DELETE FROM emekdas_qrafik WHERE emekdas_id = ? AND bas > ? AND menbe = 'excel'").run(emekdasId, bas);
   const indi = qrafikTap(db, { isBaslama: null, isBitme: null }, emekdasId, bas);
   let netice = 'yazildi';
   if (indi.menbe === 'el') netice = 'qorundu';

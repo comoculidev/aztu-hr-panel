@@ -137,3 +137,21 @@ test('kadr_melumati: Əsas sətir sira 0, əvəzçilik sira 1', async () => {
   assert.deepEqual(k, [{ sira: 0, tip: 'Əsas', stat: 1 }, { sira: 1, tip: 'Daxili əvəzçi', stat: 0.5 }]);
   assert.equal(acar(db, 'ali'), 'tam_1');
 });
+
+test('yenidən yükləmə daha erkən tarixlə: sonrakı Excel qrafiki silinir, yeni şablon bu gün də qüvvədədir', async () => {
+  const db = baza([['ali', 'Ali', 'Veliyev']]);
+  await kadrYukle(db, await excelQur(BASLIQ, [setir('Əli', 'Vəliyev')]), { bas: '2026-11-03', kim: 't' });
+  qrafikYaz(db, { emekdasId: 'ali', bas: '2026-12-01', baslama: '10:00', bitme: '15:00', menbe: 'el', kim: 't' });
+  const n = await kadrYukle(db, await excelQur(BASLIQ, [setir('Əli', 'Vəliyev', '', 'Əsas', '0,5')]), { bas: '2026-11-01', kim: 't' });
+  assert.equal(n.yazildi, 1);
+  assert.equal(acar(db, 'ali', '2026-11-03'), 'stat_05');
+  assert.equal(acar(db, 'ali', '2026-12-05'), 'Fərdi');          // əl ilə qoyulan sonrakı qrafik qalır
+});
+
+test('başlıqlar böyük hərflə və latın "I" ilə yazılsa da tanınır', async () => {
+  const buf = await excelQur(['ADI', 'SOYADI', 'IŞÇILƏRIN TIPI', 'ŞTAT VAHİDİ', 'IŞ VAXTI', 'Işdən çıxma sən. tarixi', 'Işçi qrup'],
+    [['Əli', 'Vəliyev', 'Əsas', '1', 'Tam', '01.10.2026', 'Professor müəllim heyəti']]);
+  const { setirler } = await kadrOxu(buf);
+  assert.deepEqual([setirler[0].tip, setirler[0].is_vaxti, setirler[0].cixis, setirler[0].isci_qrup],
+    ['Əsas', 'Tam', '2026-10-01', 'Professor müəllim heyəti']);
+});
