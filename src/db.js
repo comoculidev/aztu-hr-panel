@@ -34,6 +34,13 @@ CREATE TABLE IF NOT EXISTS sessiyalar (
   bitir INTEGER NOT NULL
 );
 CREATE TABLE IF NOT EXISTS sistem (acar TEXT PRIMARY KEY, deyer TEXT NOT NULL);
+-- hansı kamera serveri (mənbə IP) hansı əməkdaşı göndərib: bir neçə server olanda əməkdaş yalnız HEÇ BİR server onu
+-- göndərməyəndə deaktiv olur (əvvəl hər serverin siyahısı o birinin əməkdaşlarını deaktiv edirdi)
+CREATE TABLE IF NOT EXISTS emekdas_menbe (
+  emekdas_id TEXT NOT NULL, menbe TEXT NOT NULL,
+  PRIMARY KEY (emekdas_id, menbe)
+);
+CREATE INDEX IF NOT EXISTS emekdas_menbe_menbe ON emekdas_menbe(menbe);
 -- iş qrafiki: şablonlar, şablon saatının tarixçəsi, əməkdaşa təyinatın tarixçəsi (dəyişiklik tarixlə qüvvəyə minir —
 -- köhnə günlər köhnə saatla hesablanır), kadr Excel-indən gələn məlumat (FİN, doğum tarixi saxlanmır)
 CREATE TABLE IF NOT EXISTS qrafik_sablonlari (

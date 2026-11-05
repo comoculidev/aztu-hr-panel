@@ -114,6 +114,18 @@ Avtomatik başlama: Task Scheduler → "At startup", istifadəçi: SYSTEM, proqr
 5. Kamera xidmətini yenidən başladın. Panelin yan menyusunda "Kameralar onlayn" görünür; əməkdaş siyahısı və
    şəkillər (240 px) bir neçə dəqiqəyə gəlir.
 
+### Bir neçə kamera serveri
+- Serverin `.env`-ində IP-ləri vergüllə yazın və HR serverini yenidən başladın:
+  `INGEST_IP=192.0.2.77,192.0.2.78`. Yalnız dəqiq IP (diapazon / `/24` yox). nginx arxasındadırsa `PROXY_ETIBAR=true`.
+- Açar hamısı üçün birdir: hər kamera kompüterinin `muhit.env`-ində eyni `HR_API_ACAR`.
+- Kamera adları serverlər arasında təkrarlanmamalıdır (hadisə yalnız kamera adı ilə yazılır: iki `T1` qarışar).
+- Siqnal hər server üçün ayrıca saxlanılır: yan menyu hamısı onlayndırsa "Kameralar onlayn", biri susubsa
+  "1/2 server onlayn · cavab vermir: <IP>" göstərir (üzərinə gələndə hər server ayrıca).
+- Əməkdaş yalnız **heç bir** server onu göndərməyəndə deaktiv olur (serverlərin bazası fərqli ola bilər).
+  Server `INGEST_IP`-dən çıxarılanda onun əməkdaş siyahısı sonrakı ilk göndərişdə silinir.
+- Köhnə versiyadan keçəndə: hər server ilk dəfə öz siyahısını göndərənə qədər (bir neçə dəqiqə) yalnız başqa serverdə
+  olan əməkdaş bir dəfə deaktiv görünə bilər — o server siyahısını göndərən kimi yenidən aktiv olur.
+
 ## Canlı test — yoxlama siyahısı
 1. **Server:** brauzerdə `http://<server>:3000/api/saglamliq` → `{"ok":true,"kameraApi":true}`.
 2. **Giriş:** `http://<server>:3000` → login → "Ümumi görünüş" açılır.

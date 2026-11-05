@@ -5,13 +5,12 @@ import { buGun, indiYaz } from './db.js';
 import { excelYaz } from './excel.js';
 import { isGunudur } from './davamiyyet.js';
 import { AZ, SorguXetasi, araliq, emekdasSec, gunSetri, hesabatQur, qrafikQisa } from './hesabat.js';
-import { ipNormal } from './ingest.js';
+import { ipNormal, siqnalCemi, siqnallariOxu } from './ingest.js';
 import { qrafikTap, qrafikXeritesi } from './qrafik.js';
 import { qrafikRouter } from './qrafikApi.js';
 
 export const KUKI = 'aztu_hr';
 const KATEQORIYA = new Set(['emekdas', 'telebe', 'taninmayan', 'diger']);
-const SIQNAL_ONLAYN_MS = 3 * 60_000;     // kamera hər 60 san siqnal verir; 3 dəq yoxdursa — oflayn
 
 const asinxron = (f) => (req, res, next) => Promise.resolve(f(req, res, next)).catch(next);
 const str = (v, maks = 200) => (typeof v === 'string' ? v.trim().slice(0, maks) : '');
@@ -111,11 +110,9 @@ export function apiRouter(db, k, log = console) {
       siyahi.binada.sort((a, b) => a.gelis.localeCompare(b.gelis));
       buGunX = { gelen: gunler.size, binada: siyahi.binada.length, geciken: siyahi.geciken.length, isGunu, siyahi };
     }
-    const siqnalSetri = db.prepare("SELECT deyer FROM sistem WHERE acar = 'siqnal'").get();
-    const siqnal = siqnalSetri ? JSON.parse(siqnalSetri.deyer) : null;
-    if (siqnal) siqnal.onlayn = Date.now() - (siqnal.alindiMs ?? 0) < SIQNAL_ONLAYN_MS;
+    const siqnallar = siqnallariOxu(db, k);           // hər kamera serveri ayrıca
     res.json({
-      bas, son, aktivEmekdas: aktiv, bugun: buGunX, siqnal,
+      bas, son, aktivEmekdas: aktiv, bugun: buGunX, siqnal: siqnalCemi(siqnallar), siqnallar,
       say: { cemi: Object.values(say).reduce((a, b) => a + b, 0), emekdas: say.emekdas ?? 0, emekdasUnikal: unikal,
         telebe: say.telebe ?? 0, taninmayan: say.taninmayan ?? 0, diger: say.diger ?? 0 },
       seriya: { nov: bas === son ? 'saat' : 'gun', setirler: seriya },
@@ -172,8 +169,7 @@ export function apiRouter(db, k, log = console) {
     const siyahi = db.prepare(`SELECT h.no, h.tarix, h.saat, h.kamera, h.istiqamet, h.adam_no, h.sekil IS NOT NULL AS sekil_var
       FROM hadiseler h WHERE ${sertK} ORDER BY h.tarix DESC, h.saat DESC, h.no DESC LIMIT ?`).all(...parK, limit);
     // "şəkil yoxdur"un səbəbini panel göstərsin: kamera şəkil göndərirmi (son siqnaldan)
-    const siqnal = db.prepare("SELECT deyer FROM sistem WHERE acar = 'siqnal'").get();
-    const kameraSekil = siqnal ? JSON.parse(siqnal.deyer).taninmayanSekli ?? null : null;
+    const kameraSekil = siqnalCemi(siqnallariOxu(db, k))?.taninmayanSekli ?? null;
     res.json({ bas: par[0], son, say, sekilliSay, saxlamaGun, kameraSekil, siyahi });
   });
 

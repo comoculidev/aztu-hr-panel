@@ -13,6 +13,49 @@ const metn = (v, maks = 200) => (typeof v === 'string' ? v.trim().slice(0, maks)
 
 export const ipNormal = (ip) => String(ip || '').replace(/^::ffff:/, '');
 
+export const SIQNAL = 'siqnal:';                 // sistem cədvəlində: siqnal:<IP> — hər kamera serveri üçün bir qeyd
+const SIQNAL_ONLAYN_MS = 3 * 60_000;              // kamera hər 60 san siqnal verir; 3 dəq yoxdursa — oflayn
+const SIQNAL_UNUT_MS = 7 * 24 * 3600_000;         // INGEST_IP boşdursa: 7 gündür susan server siyahıdan çıxır
+
+/** Kamera serverlərinin son siqnalları (IP-yə görə), hər birində `onlayn`. INGEST_IP verilibsə yalnız o IP-lər
+ *  (çıxarılan server "oflayn" kimi qalmasın), verilməyibsə son 7 gündə siqnal verənlər. Köhnə versiyanın tək
+ *  'siqnal' qeydi də oxunur (yeniləmədən sonra ilk siqnala qədər). */
+export function siqnallariOxu(db, k, indiMs = Date.now()) {
+  const setirler = db.prepare(`SELECT acar, deyer FROM sistem WHERE acar = 'siqnal' OR acar LIKE '${SIQNAL}%'`).all();
+  const ipye = new Map();
+  for (const { acar, deyer } of setirler) {
+    let s;
+    try { s = JSON.parse(deyer); } catch { continue; }
+    const ip = acar === 'siqnal' ? (s.ip || '?') : acar.slice(SIQNAL.length);
+    if (ipye.has(ip) && acar === 'siqnal') continue;
+    ipye.set(ip, { ...s, ip });
+  }
+  const icaze = k?.ingestIp ?? [];
+  return [...ipye.values()]
+    .filter((s) => (icaze.length ? icaze.includes(s.ip) : indiMs - (s.alindiMs ?? 0) < SIQNAL_UNUT_MS))
+    .map((s) => ({ ...s, onlayn: indiMs - (s.alindiMs ?? 0) < SIQNAL_ONLAYN_MS }))
+    .sort((a, b) => a.ip.localeCompare(b.ip, 'en', { numeric: true }));
+}
+
+/** Bütün serverlərin cəmi (panelin yan menyusu və köhnə `siqnal` sahəsi üçün): hamısı onlayndırsa onlayn. */
+export function siqnalCemi(siqnallar) {
+  if (!siqnallar.length) return null;
+  const son = siqnallar.reduce((a, b) => ((b.alindiMs ?? 0) > (a.alindiMs ?? 0) ? b : a));
+  const sekil = siqnallar.map((s) => s.taninmayanSekli);
+  return {
+    onlayn: siqnallar.every((s) => s.onlayn),
+    onlaynSay: siqnallar.filter((s) => s.onlayn).length,
+    serverSay: siqnallar.length,
+    alindi: son.alindi, alindiMs: son.alindiMs,
+    ip: siqnallar.map((s) => s.ip).join(', '),
+    versiya: [...new Set(siqnallar.map((s) => s.versiya).filter(Boolean))].join(', '),
+    novbe: siqnallar.reduce((a, s) => a + (Number(s.novbe) || 0), 0),
+    kameralar: siqnallar.flatMap((s) => s.kameralar || []),
+    // "şəkil yoxdur"un səbəbi: hər hansı server şəkli söndürübsə false, biri göndərirsə true, heç biri bilmirsə null
+    taninmayanSekli: sekil.includes(false) ? false : sekil.includes(true) ? true : null,
+  };
+}
+
 /** base64 → JPEG (yalnız FF D8 ilə başlayan və ağlabatan ölçüdə; başqa fayl brauzerə şəkil kimi verilməsin) */
 export function jpegOxu(b64, maks = 500_000) {
   if (typeof b64 !== 'string' || !b64 || b64.length > maks * 1.4) return null;
@@ -81,6 +124,7 @@ export function ingestRouter(db, k, log = console) {
     const siyahi = req.body?.emekdaslar;
     if (!Array.isArray(siyahi)) return res.status(400).json({ xeta: 'emekdaslar siyahı olmalıdır' });
     const indi = indiYaz();
+    const menbe = ipNormal(req.ip);
     const movcud = new Map(db.prepare('SELECT id, sekil_hash, aktiv FROM emekdaslar').all().map((e) => [e.id, e]));
     const yaz = db.prepare(`INSERT INTO emekdaslar (id, ad, soyad, ata, sobe, vezife, aktiv, gozlenen_hash, axtaris, yaradilib, yenilenib)
       VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)
@@ -91,6 +135,7 @@ export function ingestRouter(db, k, log = console) {
     const sekilLazim = [];
     let yeni = 0;
     let telebe = 0;
+    let deaktiv = 0;
     emeliyyat(db, () => {
       for (const e of siyahi) {
         const id = metn(e?.id, 300);
@@ -109,12 +154,26 @@ export function ingestRouter(db, k, log = console) {
         if (!kohne) yeni += 1;
         if (hash && (!kohne || kohne.sekil_hash !== hash)) sekilLazim.push(id);
       }
-      // siyahıda olmayanlar kamera bazasından çıxıb: silinmir (keçmiş hadisələri hesabatda qalsın), deaktiv olur
+      // Bu serverin siyahısı yenilənir. INGEST_IP-də artıq olmayan serverlərin köhnə siyahısı silinir: IP-si dəyişən və
+      // ya çıxarılan server əməkdaşları əbədi aktiv saxlamasın.
+      db.prepare('DELETE FROM emekdas_menbe WHERE menbe = ?').run(menbe);
+      if (k.ingestIp.length) {
+        db.prepare(`DELETE FROM emekdas_menbe WHERE menbe NOT IN (${k.ingestIp.map(() => '?').join(',')})`).run(...k.ingestIp);
+      }
+      const menbeYaz = db.prepare('INSERT OR IGNORE INTO emekdas_menbe (emekdas_id, menbe) VALUES (?, ?)');
+      for (const id of gelen) menbeYaz.run(id, menbe);
+      // Siyahıda olmayan əməkdaş başqa server onu göndərirsə aktiv qalır; heç biri göndərmirsə kamera bazasından
+      // çıxıb: silinmir (keçmiş hadisələri hesabatda qalsın), deaktiv olur.
+      const basqaMenbe = db.prepare('SELECT 1 FROM emekdas_menbe WHERE emekdas_id = ? LIMIT 1');
       const deaktivEt = db.prepare('UPDATE emekdaslar SET aktiv = 0, yenilenib = ? WHERE id = ?');
-      for (const [id, e] of movcud) if (!gelen.has(id) && e.aktiv) deaktivEt.run(indi, id);
+      for (const [id, e] of movcud) {
+        if (!gelen.has(id) && e.aktiv && !basqaMenbe.get(id)) {
+          deaktivEt.run(indi, id);
+          deaktiv += 1;
+        }
+      }
     });
-    const deaktiv = [...movcud.entries()].filter(([id, e]) => !gelen.has(id) && e.aktiv).length;
-    log.info(`ingest: əməkdaş siyahısı — ${gelen.size} nəfər, ${yeni} yeni, ${deaktiv} deaktiv, ${sekilLazim.length} şəkil lazım`
+    log.info(`ingest: əməkdaş siyahısı (${menbe}) — ${gelen.size} nəfər, ${yeni} yeni, ${deaktiv} deaktiv, ${sekilLazim.length} şəkil lazım`
       + (telebe ? `, ${telebe} tələbə qəbul edilmədi (kamera yenilənməlidir)` : ''));
     res.json({ yeni, yenilenen: gelen.size - yeni, deaktiv, telebe, sekil_lazim: sekilLazim });
   });
@@ -145,8 +204,12 @@ export function ingestRouter(db, k, log = console) {
       kameralar: Array.isArray(b.kameralar)
         ? b.kameralar.slice(0, 100).map((c) => ({ ad: metn(c?.ad, 32), istiqamet: metn(c?.istiqamet, 10) })) : [],
     };
-    db.prepare('INSERT INTO sistem (acar, deyer) VALUES (?, ?) ON CONFLICT(acar) DO UPDATE SET deyer = excluded.deyer')
-      .run('siqnal', JSON.stringify(deyer));
+    // hər server (mənbə IP) öz siqnalını saxlayır — əvvəl tək 'siqnal' qeydi idi və hər server o birininkini silirdi
+    emeliyyat(db, () => {
+      db.prepare('INSERT INTO sistem (acar, deyer) VALUES (?, ?) ON CONFLICT(acar) DO UPDATE SET deyer = excluded.deyer')
+        .run(`${SIQNAL}${deyer.ip}`, JSON.stringify(deyer));
+      db.prepare("DELETE FROM sistem WHERE acar = 'siqnal'").run();      // köhnə versiyanın tək qeydi
+    });
     res.json({ ok: true });
   });
 

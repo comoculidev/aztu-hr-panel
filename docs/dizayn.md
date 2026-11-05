@@ -55,7 +55,9 @@ Tam siyahı (bazadakı bütün əməkdaşlar; tələbələr yox):
                  "vezife": "Dosent", "sekil_hash": "sha1"}]}
 ```
 Cavab: `{"yeni": n, "yenilenen": m, "deaktiv": k, "sekil_lazim": ["id", ...]}`. Siyahıda olmayan əməkdaş silinmir,
-`aktiv = 0` olur (keçmiş hadisələri qalır).
+`aktiv = 0` olur (keçmiş hadisələri qalır). Bir neçə kamera serveri olanda hər serverin (mənbə IP) siyahısı
+`emekdas_menbe` cədvəlində ayrıca saxlanılır: əməkdaş yalnız **heç bir** server onu göndərməyəndə deaktiv olur;
+`INGEST_IP`-də olmayan IP-lərin köhnə siyahısı silinir.
 
 ### `POST /api/v1/ingest/sekiller`
 `{"sekiller": [{"id": "...", "jpeg": "<base64>"}]}` — yalnız `sekil_lazim` siyahısındakılar, ≤ 50 bir sorğuda.
@@ -63,7 +65,10 @@ Cavab: `{"yeni": n, "yenilenen": m, "deaktiv": k, "sekil_lazim": ["id", ...]}`. 
 
 ### `POST /api/v1/ingest/siqnal`
 `{"vaxt": "...", "kameralar": [{"ad": "T1", "istiqamet": "giris"}], "novbe": 0, "versiya": "git-hash"}` — hər 60 san.
-Panel "Kamera sistemi: onlayn / son siqnal N dəq əvvəl" göstərir.
+Panel "Kamera sistemi: onlayn / son siqnal N dəq əvvəl" göstərir. Hər server ayrıca saxlanılır (`sistem` cədvəlində
+`siqnal:<IP>`); `/api/umumi` `siqnallar` (hər server, `onlayn` ilə) və `siqnal` (cəmi: hamısı onlayndırsa onlayn,
+`serverSay`, `onlaynSay`, bütün kameralar) qaytarır. `INGEST_IP` verilibsə yalnız o IP-lər göstərilir, verilməyibsə
+son 7 gündə siqnal verənlər.
 
 ### Əməkdaş kimdir, ID nədir
 - Kateqoriya mövcud qayda ilə (`hesabat.kateqoriya`): `qrup` sahəsində rəqəm və ya "Tələbə/Magistr/..." varsa tələbə,

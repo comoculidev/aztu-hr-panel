@@ -363,16 +363,25 @@ function qrafikYeniden() {
 }
 
 // ================================================================ yan menyu: kamera sistemi və say
-function sistemYaz(siqnal, aktiv) {
+function sistemYaz(siqnal, aktiv, siqnallar = []) {
   const s = $('#sistem');
   if (aktiv !== undefined) $('#nav-say').textContent = aktiv ? reqem(aktiv) : '';
   if (!siqnal) {
     s.innerHTML = '<b><i class="nokte bad"></i>Kamera sistemi</b><span>hələ siqnal gəlməyib</span>';
+    s.title = '';
     return;
   }
-  s.innerHTML = `<b><i class="nokte ${siqnal.onlayn ? 'ok' : 'bad'}"></i>Kameralar ${siqnal.onlayn ? 'onlayn' : 'oflayn'}</b>
-    <span>${esc(siqnal.kameralar?.map((k) => k.ad).join(', ') || '—')} · son siqnal ${esc(siqnal.alindi.slice(11, 16))}${siqnal.novbe ? ` · növbədə ${reqem(siqnal.novbe)}` : ''}</span>`;
-  s.title = `IP ${siqnal.ip} · versiya ${siqnal.versiya || '—'}`;
+  // bir neçə kamera serveri: hamısı onlayndırsa yaşıl; biri susubsa qırmızı və hansı olduğu yazılır
+  const cox = (siqnal.serverSay ?? 1) > 1;
+  const basliq = siqnal.onlayn ? 'Kameralar onlayn'
+    : cox && siqnal.onlaynSay ? `${siqnal.onlaynSay}/${siqnal.serverSay} server onlayn` : 'Kameralar oflayn';
+  const susan = siqnallar.filter((x) => !x.onlayn).map((x) => x.ip);
+  s.innerHTML = `<b><i class="nokte ${siqnal.onlayn ? 'ok' : 'bad'}"></i>${esc(basliq)}</b>
+    <span>${esc(siqnal.kameralar?.map((k) => k.ad).join(', ') || '—')} · son siqnal ${esc(siqnal.alindi.slice(11, 16))}${siqnal.novbe ? ` · növbədə ${reqem(siqnal.novbe)}` : ''}${cox && susan.length ? ` · cavab vermir: ${esc(susan.join(', '))}` : ''}</span>`;
+  s.title = siqnallar.length
+    ? siqnallar.map((x) => `IP ${x.ip} · ${x.onlayn ? 'onlayn' : 'oflayn'} · ${(x.kameralar || []).map((k) => k.ad).join(', ') || '—'}`
+      + ` · son siqnal ${String(x.alindi || '').slice(11, 16)} · versiya ${x.versiya || '—'}`).join('\n')
+    : `IP ${siqnal.ip} · versiya ${siqnal.versiya || '—'}`;
 }
 
 // ================================================================ 1. ÜMUMİ GÖRÜNÜŞ
@@ -441,7 +450,7 @@ async function umumiYukle(sessiz = false) {
     if (!cerceve.isConnected) return;
     $('#u-xeta').innerHTML = '';
     $('#u-alt').textContent = muddetMetni(m);
-    sistemYaz(u.siqnal, u.aktivEmekdas);
+    sistemYaz(u.siqnal, u.aktivEmekdas, u.siqnallar);
     heroYaz(u);
     const gost = [
       ['Ümumi keçid', u.say.cemi, 'bütün kameralar', ''],
@@ -1342,7 +1351,7 @@ async function yonlendir() {
 async function sistemYenile() {
   try {
     const u = await api(`/api/umumi?bas=${MEN.bugun}&son=${MEN.bugun}`);
-    sistemYaz(u.siqnal, u.aktivEmekdas);
+    sistemYaz(u.siqnal, u.aktivEmekdas, u.siqnallar);
   } catch { /* növbəti dəfə */ }
 }
 
